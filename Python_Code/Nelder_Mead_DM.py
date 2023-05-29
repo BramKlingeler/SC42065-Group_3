@@ -10,6 +10,7 @@ from dm.okotech.dm import OkoDM
 from camera.ueye_camera import uEyeCamera
 from pyueye import ueye
 
+from scipy.optimize import minimize 
 import numpy as np
 import matplotlib.pyplot as plt
 import time
@@ -157,10 +158,6 @@ for k in range(cropped_img[0])
         current_xy = np.linalg.norm(([k_c,h_c] - [k,h]) * img[k,h])
         sum_xy = sum_xy + current_xy
 
-from scipy.optimize import minimize 
-import matplotlib.pyplot as plt
-import numpy as np 
-
 def func(x):
     x = x**2+2*np.sin(x*np.pi)
     return x
@@ -171,7 +168,8 @@ y = func(x)
 
 x0 = [-1, 1.9, 1.6, 1, 0.4]
 ig, ax = plt.subplots(len(x0), figsize=(6, 8))
-i = 0
+result_arr = np.array(x0)
+
 for i in range(len(x0)):
     result = minimize(func,  x0[i], method="nelder-mead")
     ax[i].plot(x, y, label="y")
@@ -179,7 +177,11 @@ for i in range(len(x0)):
     ax[i].set_title("Starts from " + str(x0[i]))
     ax[i].legend(loc='best', fancybox=True, shadow=True)
     ax[i].grid()
-    
+    result_arr[i] = result['fun']
+
+
+print(result_arr.min())
+
 
 plt.tight_layout()        
 plt.show()
