@@ -79,6 +79,7 @@ if __name__ == "__main__":
         downp = rr < prob[0]
         upp = rr > prob[1]
         j = 0
+        prev_act_amp = 0
  
         # for loop for making the walking process
         for idownp, iupp in zip(downp, upp):
@@ -98,7 +99,7 @@ if __name__ == "__main__":
                 for i in range(steps):
                     current = np.ones(num_actuators)#np.zeros(num_actuators) for resetting the selected actuators
                     #current[j] = 1, only needed for seperate control
-                    act_amp = voltage_val / steps * current * (i + 1) + prev_act_amp / (i + 1) #standard coeff
+                    act_amp = voltage_val / steps * current * (i + 1) + prev_act_amp / ((0.3*i)**3 + 1) #standard coeff
                     dm.setActuators(act_amp)
                     time.sleep(s_time)  # in seconds
                     # print(act_amp[0])
