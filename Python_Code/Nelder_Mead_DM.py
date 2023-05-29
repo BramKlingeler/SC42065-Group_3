@@ -146,15 +146,15 @@ if __name__ == "__main__":
                 
         dm.setActuators(np.zeros(len(dm)))
 
-
+img = grabframes(1, 1)
 cropped_img = img[1280/4:3*1280/4,1024/4:3*1024/4]
 sum_xy = 0
 
 for k in range(cropped_img[0])
-    x_center = 
     for h in range(cropped_img[1])
-        y_center = 
-        current_xy = np.linalg.norm(([x_center,y_center] - [k,h]) * img[k,h])
+        k_c =
+        h_c =
+        current_xy = np.linalg.norm(([k_c,h_c] - [k,h]) * img[k,h])
         sum_xy = sum_xy + current_xy
 
 from scipy.optimize import minimize 
@@ -179,9 +179,7 @@ for i in range(len(x0)):
     ax[i].set_title("Starts from " + str(x0[i]))
     ax[i].legend(loc='best', fancybox=True, shadow=True)
     ax[i].grid()
-
-#minindex=ax.min()
-#print(minindex)
+    
 
 plt.tight_layout()        
 plt.show()
