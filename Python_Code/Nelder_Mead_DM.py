@@ -76,10 +76,11 @@ if __name__ == "__main__":
         voltage = [initial_voltage]
  
         # creating the random points
-        rr = np.random.random(25)
+        rr = np.random.random(3)
         downp = rr < prob[0]
         upp = rr > prob[1]
         j = 0
+        prev_act_amp = 0
  
         # for loop for making the walking process
         for idownp, iupp in zip(downp, upp):
@@ -91,7 +92,7 @@ if __name__ == "__main__":
             voltage_val = float(voltage[j])*0.8/10.0
             
             while a == True:
-                s_time = 0.5  # sleep time (small amount of time between steps)
+                s_time = 0.1  # sleep time (small amount of time between steps)
                 w_time = 2  # wait time around focus
                 steps = 10
                 pre_act_amp = 0
@@ -148,24 +149,50 @@ if __name__ == "__main__":
         dm.setActuators(np.zeros(len(dm)))
 
 img = grabframes(1, 1)
-cropped_img = img[1280/4:3*1280/4,1024/4:3*1024/4]
-sum_xy = 0
+cropped_img = img[0,320:960,256:768]
+print(cropped_img)
+print(np.shape(cropped_img)[0])
 
-for k in range(cropped_img[0])
-    for h in range(cropped_img[1])
-        k_c =
-        h_c =
-        current_xy = np.linalg.norm(([k_c,h_c] - [k,h]) * img[k,h])
-        sum_xy = sum_xy + current_xy
 
-def func(x):
-    x = x**2+2*np.sin(x*np.pi)
-    return x
+def func(cropped_img):
+  
+    weighted_sum_k=0
+    weighted_sum_h=0
+    bright_sum_k=0
+    bright_sum_h=0    
+    for k in range(np.shape(cropped_img)[0]):
+        for h in range(np.shape(cropped_img)[1]):
+            weighted_sum_k=weighted_sum_k+cropped_img[k,h]*k
+            weighted_sum_h=weighted_sum_h+cropped_img[k,h]*h
+            bright_sum_k=bright_sum_k+cropped_img[k,h]
+            bright_sum_h=bright_sum_h+cropped_img[k,h]
+  
+    k_c=weighted_sum_k/ bright_sum_k
+    h_c=weighted_sum_h/bright_sum_h
+    
+    weighted_sum_var=0
+    image_sum=0
+    for k in range(np.shape(cropped_img)[0]):
+        for h in range(np.shape(cropped_img)[1]):
+            d2=(k-k_c)**2+(h-h_c)**2
+            weighted_sum_var=weighted_sum_var+d2*cropped_img[k,h]
+            image_sum=image_sum+cropped_img[k,h]
+            
+            
+    var_d=weighted_sum_var/image_sum
+    
+    return var_d
+            
+            
+            
+
+
+
 
  
 x = np.arange(-2, 2, 0.01)
-y = func(x)
-
+y = func(cropped_img)
+print(y)
 x0 = [-1, 1.9, 1.6, 1, 0.4]
 ig, ax = plt.subplots(len(x0), figsize=(6, 8))
 result_arr = np.array(x0)
