@@ -8,7 +8,6 @@ Setup right corner:
 
 from camera.ueye_camera import uEyeCamera
 from pyueye import ueye
-
 import numpy as np
 import matplotlib.pyplot as plt
 import time
@@ -16,6 +15,12 @@ import random
 
 SH_Sensor_Index = 2
 Camera_Index = 1
+
+import os
+os.environ['PATH'] = "C:\\AO-course-2023\\dm\okotech\\okodm_sdk\\python" + os.pathsep + os.environ['PATH']
+
+#os.add_dll_directory("C:\\AO-course-2023\\dm\okotech\\okodm_sdk")
+
 
 
 def grabframes(nframes, cameraIndex=0):
@@ -64,23 +69,23 @@ if __name__ == "__main__":
         num_actuators = len(dm)
 
         val_act = np.zeros(num_actuators)
-        val_act[0] = 1
-        val_act[1] = 0
-        val_act[2] = 0
-        val_act[3] = 0
-        val_act[4] = 1
+        val_act[0] = 0
+        val_act[1] = -1
+        val_act[2] = -1
+        val_act[3] = -1
+        val_act[4] = 0
         val_act[5] = 0 
-        val_act[6] = 0.5
-        val_act[7] = 0  
-        val_act[8] = 1
-        val_act[9] = 0
-        val_act[10] = 0
-        val_act[11] = 0
+        val_act[6] = -1
+        val_act[7] = -1 
+        val_act[8] = -0.5
+        val_act[9] = -0.5
+        val_act[10] = -1
+        val_act[11] = -1
         val_act[12] = 0
         val_act[13] = 0
-        val_act[14] = 0
-        val_act[15] = 0
-        val_act[16] = 1
+        val_act[14] = -1
+        val_act[15] = -0.5
+        val_act[16] = -0.5
         val_act[17] = 0
         val_act[18] = 0
 
@@ -88,7 +93,7 @@ if __name__ == "__main__":
  
         while a == True:
             s_time = 0.01  # sleep time (small amount of time between steps)
-            w_time = 5  # wait time around focus
+            w_time = 0.1  # wait time around focus
             steps = 10
             # increase actuator voltage gradually, then reverse, hold at 0
             for i in range(steps):
@@ -105,23 +110,25 @@ if __name__ == "__main__":
                 time.sleep(s_time)  # in seconds
                 # print(act_amp[0])
 
-            dm.setActuators(np.zeros(len(dm)))
+            #dm.setActuators(np.zeros(len(dm)))
             #time.sleep(w_time)
 
             # decrease actuator voltage gradually, then reverse, hold at 0
-            for i in range(steps):
-                act_amp = -0.8 / steps * current * (i + 1)
-                dm.setActuators(act_amp)
-                time.sleep(s_time)  # in seconds
-                # print(act_amp[0])
-            time.sleep(w_time)
-            for i in range(steps):
-                act_amp = -0.8 / steps * current * (steps - i)
-                dm.setActuators(act_amp)
-                time.sleep(s_time)  # in seconds
+# =============================================================================
+#             for i in range(steps):
+#                 act_amp = -0.8 / steps * current * (i + 1)
+#                 dm.setActuators(act_amp)
+#                 time.sleep(s_time)  # in seconds
+#                 # print(act_amp[0])
+#             time.sleep(w_time)
+#             for i in range(steps):
+#                 act_amp = -0.8 / steps * current * (steps - i)
+#                 dm.setActuators(act_amp)
+#                 time.sleep(s_time)  # in seconds
+# =============================================================================
                 # print(act_amp[0])
 
-            dm.setActuators(np.zeros(len(dm)))
+            #dm.setActuators(np.zeros(len(dm)))
             #time.sleep(w_time)
             a = False
 
@@ -140,6 +147,43 @@ if __name__ == "__main__":
             img = grabframes(5, 2)
             plt.imshow(img[-1])
             plt.colorbar()
+            
+img = grabframes(1, 1)
+cropped_img = img[0,320:960,256:768]
+
+
+def func(cropped_img):
+  
+    weighted_sum_k=0
+    weighted_sum_h=0
+    bright_sum_k=0
+    bright_sum_h=0    
+    for k in range(np.shape(cropped_img)[0]):
+        for h in range(np.shape(cropped_img)[1]):
+            weighted_sum_k=weighted_sum_k+cropped_img[k,h]*k
+            weighted_sum_h=weighted_sum_h+cropped_img[k,h]*h
+            bright_sum_k=bright_sum_k+cropped_img[k,h]
+            bright_sum_h=bright_sum_h+cropped_img[k,h]
+  
+    k_c=weighted_sum_k/ bright_sum_k
+    h_c=weighted_sum_h/bright_sum_h
+    
+    weighted_sum_var=0
+    image_sum=0
+    for k in range(np.shape(cropped_img)[0]):
+        for h in range(np.shape(cropped_img)[1]):
+            d2=(k-k_c)**2+(h-h_c)**2
+            weighted_sum_var=weighted_sum_var+d2*cropped_img[k,h]
+            image_sum=image_sum+cropped_img[k,h]
+            
+            
+    var_d=weighted_sum_var/image_sum
+    
+    return var_d
+
+var = func(cropped_img)
+
+print(var)
 
 
 print('finish operation')
