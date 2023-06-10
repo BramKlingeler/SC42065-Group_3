@@ -1,3 +1,9 @@
+from dm.okotech.dm import OkoDM
+
+from camera.ueye_camera import uEyeCamera
+from pyueye import ueye
+
+
 import numpy as np
 import matplotlib.pyplot as plt 
 from scipy.optimize import minimize
@@ -8,6 +14,15 @@ class NelderMead:
 		self.dm = dm
 		
 	def f(self, x):
+        # Set actuators
+        dm.setActuators(x)
+        time.sleep(0.09)
+        
+        # Record & report cost     
+        img = grabframes(1, 1)
+        cropped_img = img[0,320:960,256:768]
+        sum_xy = 0
+    
 		weighted_sum_k=0
         weighted_sum_h=0
         bright_sum_k=0
