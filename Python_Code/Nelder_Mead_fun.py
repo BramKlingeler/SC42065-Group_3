@@ -10,8 +10,11 @@ from scipy.optimize import minimize
 
 class NelderMead:
 
-	def _init__(self, dm) -> None: 
+	def __init__(self, dm) -> None: 
 		self.dm = dm
+#      self.history = []
+#      self.solution = []
+#      self.evaluation = []
 		
 	def f(self, x):
         # Set actuators
@@ -45,18 +48,20 @@ class NelderMead:
                     image_sum = image_sum + cropped_img[k,h]
             
             
-         var_d = weighted_sum_var/image_sum
+         var_d =int(weighted_sum_var/image_sum)
+         
     
          return var_d
 		
 	def nelder_mead (self, x0=np.zeros(43)):
 		history = []
+      opts = {'maxiter': 5000, 'adaptive': True}
 		
 		def callback(x):
 			fobj = self.f(x)
 			history.append(fobj)
 			
-		result = minimize(self.f, x0, method='Nelder-Mead', tol=1e-6, callback=callback)
+		result = minimize(self.f, x0, method='Nelder-Mead', tol=1e-6, callback=callback, options = opts)
 		
 		print('Status: %s' %result['message'])
 		print('Total Evaluations: %d' %result['nfev'])
@@ -71,4 +76,4 @@ class NelderMead:
 if __name__ == '__main__':
 	a = NelderMead(None)
 	
-	a.nelder_mead(np.ones(2))
+	a.nelder_mead(np.ones(19))
