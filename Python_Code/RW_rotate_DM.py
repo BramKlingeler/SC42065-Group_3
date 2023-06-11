@@ -75,11 +75,13 @@ if __name__ == "__main__":
         voltage = [initial_voltage]
  
         # creating the random points
-        rr = np.random.random(25)
+        rr = np.random.random(walk_iter)
         downp = rr < prob[0]
         upp = rr > prob[1]
         j = 0
         prev_act_amp = 0
+        
+        evolution = np.array(walk_iter)
  
         # for loop for making the walking process
         for idownp, iupp in zip(downp, upp):
@@ -129,23 +131,21 @@ if __name__ == "__main__":
                 time.sleep(w_time)
                 a = False
 
-            if False:
-                # send signal to DM
-                dm.setActuators(np.zeros(len(dm)))
-                # dm.setActuators(np.random.uniform(-0.5,0.5,size=len(dm)))
-                time.sleep(1)
-
-                plt.figure()
-                img = grabframes(5, 1)
-                plt.imshow(img[-1])
-                plt.colorbar()
-
-                plt.figure()
-                img = grabframes(5, 2)
-                plt.imshow(img[-1])
-                plt.colorbar()
+            img = grabframes(1, 1)
+            cropped_img = img[0,320:960,256:768]
+            for k in range(np.shape(cropped_img)[0]):
+                for h in range(np.shape(cropped_img)[1]):
+                    sum_img = cropped_img[k,h]
+                    
+            evolution(iupp+idownp) = sum_img
+            
+        plt.plot(evolution)
+        plt.ylabel('image value')
+        plt.xlabel('iterations')
+        plt.show()
                 
         dm.setActuators(np.zeros(len(dm)))
+        
 
 
 print('finish operation')
