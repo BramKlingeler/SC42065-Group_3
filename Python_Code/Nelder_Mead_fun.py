@@ -54,24 +54,24 @@ class NelderMead:
          return var_d
 		
 	def nelder_mead (self, x0=np.zeros(43)):
-		history = []
-      opts = {'maxiter': 5000, 'adaptive': True}
+         history = []
+         opts = {'maxiter': 5000, 'adaptive': True}
+         def callback(x):
+                fobj = self.f(x)
+                history.append(fobj)
+
+
+         result = minimize(self.f, x0, method='Nelder-Mead', tol=1e-6, callback=callback, options = opts)
 		
-		def callback(x):
-			fobj = self.f(x)
-			history.append(fobj)
-			
-		result = minimize(self.f, x0, method='Nelder-Mead', tol=1e-6, callback=callback, options = opts)
-		
-		print('Status: %s' %result['message'])
-		print('Total Evaluations: %d' %result['nfev'])
-		
-		solution=result['x']
-		evaluation = result['fun']
-		print('Solution: f(%s) = %.5f' %(solution, evaluation))
-		#plot history
-		plt.plot(history) 
-		plt.show()
+         print('Status: %s' %result['message'])
+         print('Total Evaluations: %d' %result['nfev'])
+
+         solution=result['x']
+         evaluation = result['fun']
+         print('Solution: f(%s) = %.5f' %(solution, evaluation))
+         #plot history
+         plt.plot(history)
+         plt.show()
 		
 if __name__ == '__main__':
 	a = NelderMead(None)
