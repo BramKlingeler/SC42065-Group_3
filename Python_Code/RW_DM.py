@@ -55,16 +55,7 @@ if __name__ == "__main__":
         print(f"Deformable mirror with {len(dm)} actuators")
         # set actuators to 0
         act = np.zeros([len(dm)])
-        dm.setActuators(act)
-
-        # Use True/False to turn on code blocks
-
-        # example loop for moving the actutors up and down
-        # hint: Check what all actuators do indivudually -> not all mirrors are equal
-        # hint: feel free to look up you model online for additional info.
-        
-
-
+        dm.setActuators(act)   
 
         def calculate_aberrations(image):
             # Convert the image to float for accurate calculations
@@ -133,9 +124,8 @@ if __name__ == "__main__":
         # Set the parameters
         num_iterations = 1000
         step_size = 10
-        
-        
-        dm.setActuators(np.zeros(len(dm)))        
+ 
+        dm.setActuators(act)  
 
         # Perform the random walk optimization
         optimized_image, best_aberration = random_walk_optimization(image, num_iterations, step_size)
