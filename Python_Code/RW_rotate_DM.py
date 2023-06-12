@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import time
 import random
 
+
 SH_Sensor_Index = 2
 Camera_Index = 1
 
@@ -27,7 +28,7 @@ def grabframes(nframes, cameraIndex=0):
         # cam.set_aoi(0,0, w, h)
 
         cam.alloc(buffer_count=10)
-        cam.set_exposure(18.5)
+        cam.set_exposure(0.067)
         cam.capture_video(True)
 
         imgs = np.zeros((nframes, h, w), dtype=np.uint8)
@@ -68,42 +69,80 @@ if __name__ == "__main__":
         # Code for 1-D random walk
         
         # Probability to move up or down
-        prob = [0.25, 0.75] 
+        prob = [0.5, 0.5] 
  
         # statically defining the starting position
-        initial_voltage = random.randint(-10,10) 
-        voltage = [initial_voltage]
+        val_act = np.zeros(num_actuators)
+        val_act[0] = 0
+        val_act[1] = -0.5
+        val_act[2] = -0.5
+        val_act[3] = -0.5
+        val_act[4] = -0.5
+        val_act[5] = 1 
+        val_act[6] = -0.5
+        val_act[7] = -0.5 
+        val_act[8] = -0.5
+        val_act[9] = 1
+        val_act[10] =1
+        val_act[11] = 1
+        val_act[12] = -0.5
+        val_act[13] = -0.5
+        val_act[14] = -0.5
+        val_act[15] = 1
+        val_act[16] = 1
+        val_act[17] = 0
+        val_act[18] = 0
+        
+        val_act = np.zeros(num_actuators)
+        val_act[17] = 0.5
+        #for f in range(len(dm)-2):
+        #    val_act[f] = val_act[f] + random.uniform(-0.1,0.1)
+        
+        voltage = val_act
  
         # creating the random points
-        walk_iter = 15
-        rr = np.random.random(walk_iter)
-        downp = rr < prob[0]
-        upp = rr > prob[1]
+        walk_iter = 100
+#        rr = np.random.random(walk_iter)
+#        downp = rr < prob[0]
+#        upp = rr > prob[1]
         j = 0
         prev_act_amp = 0
         
         evolution = np.zeros(walk_iter)
         voltage_curr = np.zeros(len(dm))
+        num_actuators = len(dm)
+        prob = [0.675, 0.675]  # Probability to move up or down for all actuators
+        
+        # Perform the random walk for the specified number of iterations
+        for _ in range(walk_iter):
+            for h in range(num_actuators-2):
+                down = np.random.random() < prob[0] and voltage[h] > -1
+                up = np.random.random() > (1-prob[1]) and voltage[h] < 1
+                voltage[h] -= down / 10 - up / 10
+
+                
+            #print(voltage)
  
         # for loop for making the walking process
-        for idownp, iupp in zip(downp, upp):
-            down = idownp and voltage[-1] > -10
-            up = iupp and voltage[-1] < 10
-            voltage.append(voltage[-1] - down + up)
-            a = True
+#        for idownp, iupp in zip(downp, upp):
+#            down = idownp and voltage[-1] > -10
+#            up = iupp and voltage[-1] < 10
+#            voltage.append(voltage[-1] - down/20 + up/20)
+#            
+            #print(voltage[-1])
             
-            voltage_val = float(voltage[j])*0.8/10.0
-            
+            #voltage_val = float(voltage)*0.8/10.0
             
             s_time = 0.01  # sleep time (small amount of time between steps)
-            w_time = 0.05  # wait time around focus
+            w_time = 0.01  # wait time around focus
             steps = 10
             pre_act_amp = 0
+           
             # increase actuator voltage gradually, then reverse, hold at 0
             for i in range(steps):
-                current = np.ones(num_actuators)#np.zeros(num_actuators) for resetting the selected actuators
+                #current = np.ones(num_actuators)#np.zeros(num_actuators) for resetting the selected actuators
                 #current[j] = 1, only needed for seperate control
-                act_amp = voltage_val / steps * current * (i + 1) + prev_act_amp / ((0.3*i)**3 + 1) #standard coeff
+                act_amp = steps * voltage * (i + 1) + prev_act_amp / ((0.3*i)**3 + 1) #standard coeff
                 dm.setActuators(act_amp)
                 time.sleep(s_time)  # in seconds
                 # print(act_amp[0])
@@ -134,17 +173,15 @@ if __name__ == "__main__":
                 
                 
             img = grabframes(1, 1)
-            cropped_img = img[0,320:960,256:768]
+            cropped_img = img[0,384:640,480:800]
             sum_img = 0
             
             for k in range(np.shape(cropped_img)[0]):
                 for h in range(np.shape(cropped_img)[1]):
                     sum_img = sum_img + cropped_img[k,h]
             
-            evolution[j] = sum_img          
-            voltage_arr = voltage_val*np.ones(len(dm)) 
-            voltage_arr[18] = 0
-            voltage_curr = np.vstack((voltage_curr, voltage_arr))
+            evolution[j] = sum_img
+            voltage_curr = np.vstack((voltage_curr, voltage))
             
             j = j+1
             
@@ -162,11 +199,11 @@ if __name__ == "__main__":
         
         plt.figure()
         img = grabframes(1, 1)
-        cropped_img = img[0,256:768,320:960]
-        plt.imshow(cropped_img)
+        cropped_img = img[0,384:640,480:800]
+        plt.imshow(cropped_img, cmap='gist_gray', interpolation='nearest')
         plt.colorbar()
         
-        dm.setActuators(np.zeros(len(dm)))
+        #dm.setActuators(np.zeros(len(dm)))
         
 
 
