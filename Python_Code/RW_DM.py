@@ -1,7 +1,50 @@
-import random
+"""
+Random Walk algorithm for PC in right corner
+
+Setup right corner:
+    Camera 1: Imaging camera
+    Camera 2: SH sensor
+"""
+from dm.okotech.dm import OkoDM
+
+from camera.ueye_camera import uEyeCamera
+from pyueye import ueye
+
+from scipy.optimize import minimize 
 import numpy as np
 import matplotlib.pyplot as plt
+import time
+import random
 import cv2
+
+SH_Sensor_Index = 2
+Camera_Index = 1
+
+
+def grabframes(nframes, cameraIndex=0):
+    with uEyeCamera(device_id=1) as cam:
+        cam.set_colormode(ueye.IS_CM_MONO8)  # IS_CM_MONO8)
+        w = 1280
+        h = 1024
+        # cam.set_aoi(0,0, w, h)
+
+        cam.alloc(buffer_count=10)
+        cam.set_exposure(18.5)
+        cam.capture_video(True)
+
+        imgs = np.zeros((nframes, h, w), dtype=np.uint8)
+        acquired = 0
+        # For some reason, the IDS cameras seem to be overexposed on the first frames (ignoring exposure time?).
+        # So best to discard some frames and then use the last one
+        while acquired < nframes:
+            frame = cam.grab_frame()
+            if frame is not None:
+                imgs[acquired] = frame
+                acquired += 1
+
+        cam.stop_video()
+
+    return imgs
 
 if __name__ == "__main__":
     from dm.okotech.dm import OkoDM
