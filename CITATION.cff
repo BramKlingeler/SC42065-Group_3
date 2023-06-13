@@ -1,0 +1,20 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: SC42065 AO Group 3
+message: >-
+  If you use this dataset, please cite it using the metadata
+  from this file.
+type: dataset
+authors:
+  - given-names: 'Bram '
+    family-names: Klingeler
+  - given-names: Vatsal
+    family-names: Gupta
+  - given-names: Peiyu
+    family-names: Li
+  - given-names: Tim
+    name-suffix: van den
+    family-names: Huevel
+repository-code: 'https://github.com/BramKlingeler/SC42065-Group_3.git'
