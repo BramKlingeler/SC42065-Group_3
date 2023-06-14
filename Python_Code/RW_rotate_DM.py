@@ -177,9 +177,7 @@ if __name__ == "__main__":
                         cropped_img[k,j] = 0
                     sum_img = sum_img + cropped_img[k,h]
                     
-            print(sum_img)
-
-            
+                        
             if best_iteration > sum_img:
                 best_iteration = sum_img
                 voltage_best = voltage
