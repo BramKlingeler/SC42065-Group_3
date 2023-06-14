@@ -68,8 +68,6 @@ if __name__ == "__main__":
 
         # Code for 1-D random walk
         
-        # Probability to move up or down
-        prob = [0.5, 0.5] 
  
         # statically defining the starting position
         val_act = np.zeros(num_actuators)
@@ -94,31 +92,28 @@ if __name__ == "__main__":
         val_act[18] = 0
         
         val_act = np.zeros(num_actuators)
-        val_act[17] = 0.5
-        #for f in range(len(dm)-2):
-        #    val_act[f] = val_act[f] + random.uniform(-0.1,0.1)
+#       val_act[17] = 0.5
+        for f in range(len(dm)-2):
+            val_act[f] = val_act[f] + random.uniform(-0.5,0.5)
         
+        # init RW parameters
         voltage = val_act
- 
-        # creating the random points
         walk_iter = 100
-#        rr = np.random.random(walk_iter)
-#        downp = rr < prob[0]
-#        upp = rr > prob[1]
-        j = 0
+        n = 1
         prev_act_amp = 0
+        iteration_progress = 1.2*10**5
+        best_iteration = float('inf')
         
-        evolution = np.zeros(walk_iter)
-        voltage_curr = np.zeros(len(dm))
-        num_actuators = len(dm)
-        prob = [0.675, 0.675]  # Probability to move up or down for all actuators
+        
+        # Probability to move up or down
+        prob = [0.575, 0.575]         
         
         # Perform the random walk for the specified number of iterations
         for _ in range(walk_iter):
             for h in range(num_actuators-2):
                 down = np.random.random() < prob[0] and voltage[h] > -1
                 up = np.random.random() > (1-prob[1]) and voltage[h] < 1
-                voltage[h] -= down / 10 - up / 10
+                voltage[h] -= down / (5*n) - up / (5*n)
 
                 
             #print(voltage)
@@ -177,25 +172,29 @@ if __name__ == "__main__":
             sum_img = 0
             
             for k in range(np.shape(cropped_img)[0]):
-                for h in range(np.shape(cropped_img)[1]):
+                for j in range(np.shape(cropped_img)[1]):
+                    if cropped_img[k,j] < 175:
+                        cropped_img[k,j] = 0
                     sum_img = sum_img + cropped_img[k,h]
+                    
+            print(sum_img)
+
             
-            evolution[j] = sum_img
-            voltage_curr = np.vstack((voltage_curr, voltage))
+            if best_iteration > sum_img:
+                best_iteration = sum_img
+                voltage_best = voltage
+                iteration_progress = np.vstack((iteration_progress, best_iteration))
             
-            j = j+1
+                n = n+1
             
-        plt.plot(evolution)
+        plt.plot(iteration_progress)
         plt.ylabel('image value')
         plt.xlabel('iterations')
         plt.show()
         
-        opti_it = np.argmin(evolution)
-        optimized_voltage = voltage_curr[opti_it + 1,:]
-        
-        print(optimized_voltage)
+        print(voltage_best)
                 
-        dm.setActuators(optimized_voltage)
+        dm.setActuators(voltage_best)
         
         plt.figure()
         img = grabframes(1, 1)
