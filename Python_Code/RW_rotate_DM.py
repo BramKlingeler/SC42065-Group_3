@@ -183,9 +183,8 @@ if __name__ == "__main__":
                 voltage_best = voltage
                 iteration_progress = np.vstack((iteration_progress, best_iteration))
                 
-                if iteration_progress[1] < best_iteration:
-                    iteration_progress[1] = best_iteration
-                    
+                if iteration_progress[0] < best_iteration:
+                    iteration_progress[0] = best_iteration  
             
                 n = n+1
             
