@@ -7,7 +7,8 @@ from camera.ueye_camera import uEyeCamera
 from pyueye import ueye
 #import glob
 import cv2
-
+from zernike import RZern
+from scipy.ndimage.measurements import center_of_mass
 import numpy as np
 import matplotlib.pyplot as plt
 import time
@@ -121,6 +122,55 @@ def grabframes(nframes, cameraIndex=0):
 
     return imgs
 
+def normalize_coordinates(points):
+    # Calculate the center of the points
+    center = np.mean(points, axis=0)
+
+    # Calculate the maximum distance from the center to any point
+    max_distance = np.max(np.linalg.norm(points - center, axis=1))
+
+    # Normalize the coordinates
+    normalized_points = (points - center) / max_distance
+
+    return normalized_points
+
+
+def get_Bmatrix(points,Zorder):
+    cart = RZern(Zorder)
+    L, K = 200, 200
+    ddx = np.linspace(-1.0, 1.0, K)
+    ddy = np.linspace(-1.0, 1.0, L)
+    xv, yv = np.meshgrid(ddx, ddy)
+    cart.make_cart_grid(xv, yv)
+
+    cart.ZZ = np.zeros((xv.size, cart.nk),order='F', dtype=cart.numpy_dtype)
+    cart.shape = xv.shape
+    rho = np.sqrt(np.square(xv) + np.square(yv))
+    theta = np.arctan2(yv, xv)
+    for k in range(cart.nk):
+        prod = cart.radial(k, rho) * cart.angular(k, theta)
+        #if unit_circle:
+        #    prod[rho > 1.0] = np.nan
+        cart.ZZ[:, k] = cart.vect(prod)
+
+    B=np.zeros((2*points.shape[0],cart.nk))
+    for i in range(cart.nk):
+        #Define coefficient
+        c = np.zeros((cart.nk,1))
+        c[i] = 1
+        Phi = cart.eval_grid(c, matrix=True)
+        for j in range(points.shape[0]):
+            #find where is point in pixel
+            pixel_x=int(points[j,0]*L/2)
+            pixel_y=int(points[j,0]*K/2)
+            #Gradient of x in certain point
+            B[2*j,i]=(Phi[pixel_x+1,pixel_y]-Phi[pixel_x-1,pixel_y])/2
+            #Gradient of x in certain point
+            B[2*j+1,i]=(Phi[pixel_x,pixel_y+1]-Phi[pixel_x,pixel_y-1])/2
+    return B,cart
+
+
+
 
 if __name__ == "__main__":
     from dm.okotech.dm import OkoDM
@@ -154,86 +204,118 @@ if __name__ == "__main__":
         #img_original_2=np.float32(255*np.ones(np.shape(img_original_2))-img_original_2)
         #print(img_original_2)
         ref_grid = create_reference_fixed_grid(img_original_2)
+        #print(ref_grid)
         DM_ones = np.zeros((np.size(ref_grid),num_actuators))
         DM_negative_ones = np.zeros((np.size(ref_grid),num_actuators))
         print(np.shape(ref_grid))
         for j in range(num_actuators):
-            #a == True
-
-            while True:
-                s_time = 0.01  # sleep time (small amount of time between steps)
-                w_time = 0.5  # wait time around focus
-                # increase actuator voltage gradually, then reverse, hold at 0
-                for i in range(num_actuators):
-                    current = np.zeros(num_actuators)
-                    current[j] = 1
-                    act_amp = current
-                    dm.setActuators(act_amp)
-                    time.sleep(s_time)  # in seconds
-                    one_frame = grabframes(5,2)
-                    one_frame = one_frame[-1]
+            s_time = 0.01  # sleep time (small amount of time between steps)
+            w_time = 0.5  # wait time around focus
+            # increase actuator voltage gradually, then reverse, hold at 0
+            current = np.zeros(num_actuators)
+            current[j] = 1
+            act_amp = current
+            dm.setActuators(act_amp)
+            time.sleep(s_time)  # in seconds
+            one_frame = grabframes(5,2)
+            one_frame = one_frame[-1]
                     
-                    #plt.savefig('ref.jpg')
-                    #one_frame=cv2.imread('ref.jpg')
+            #plt.savefig('ref.jpg')
+            #one_frame=cv2.imread('ref.jpg')
                     
-                    slopes=np.reshape(get_slopes(one_frame,ref_grid),(-1,1))
-                    #print(np.shape(get_slopes(one_frame,ref_grid)))
-                    for k in range(np.size(ref_grid)):
-                        DM_ones[k,i] = slopes[k]
-                    #DM_ones[:,i] = np.reshape(get_slopes(one_frame,ref_grid),(-1,1))    
+            slopes=np.reshape(get_slopes(one_frame,ref_grid),(-1,1))
+            #print(np.shape(get_slopes(one_frame,ref_grid)))
+            for k in range(np.size(ref_grid)):
+                DM_ones[k,j] = slopes[k]
+                #DM_ones[:,i] = np.reshape(get_slopes(one_frame,ref_grid),(-1,1))    
 
                 
-                dm.setActuators(np.zeros(len(dm)))
-                time.sleep(w_time)
+        dm.setActuators(np.zeros(len(dm)))
+        time.sleep(w_time)
 
                 # decrease actuator voltage gradually, then reverse, hold at 0
-                for i in range(num_actuators):
-                    current = np.zeros(num_actuators)
-                    current[i] = -1
-                    act_amp = current
-                    dm.setActuators(act_amp)
-                    time.sleep(s_time)  # in seconds
-                    one_frame = grabframes(5,2)
-                    one_frame = one_frame[-1]
+        for i in range(num_actuators):
+            current = np.zeros(num_actuators)
+            current[i] = -1
+            act_amp = current
+            dm.setActuators(act_amp)
+            time.sleep(s_time)  # in seconds
+            one_frame = grabframes(5,2)
+            one_frame = one_frame[-1]
                     
                     
-                    slopes=np.reshape(get_slopes(one_frame,ref_grid),(-1,1))
-                    for k in range(np.size(ref_grid)):
-                        DM_negative_ones[k,i] = slopes[k]
-                    #DM_negative_ones[i] = get_slopes(one_frame,ref_grid)
+            slopes=np.reshape(get_slopes(one_frame,ref_grid),(-1,1))
+            for k in range(np.size(ref_grid)):
+                DM_negative_ones[k,i] = slopes[k]
+                #DM_negative_ones[i] = get_slopes(one_frame,ref_grid)
 
-                dm.setActuators(np.zeros(len(dm)))
-                time.sleep(w_time)
-                a == False
+        dm.setActuators(np.zeros(len(dm)))
+        time.sleep(w_time)
+        #a == False
 
-            if False:
-                # send signal to DM
-                dm.setActuators(np.zeros(len(dm)))
-                # dm.setActuators(np.random.uniform(-0.5,0.5,size=len(dm)))
-                time.sleep(1)
+        column_total = (DM_ones - DM_negative_ones) / 2
+        # Perform operations on the image as needed
 
-                plt.figure()
-                img = grabframes(5, 1)
-                plt.imshow(img[-1])
-                plt.colorbar()
+        # Convert the matrix Z to a numpy array
+        C = np.array(column_total)
+        #print(C)
+    
+        #print(C)
+        #print(np.shape(C))
 
-                plt.figure()
-                img = grabframes(5, 2)
-                plt.imshow(img[-1])
-                plt.colorbar()
+        print('Finished C matrix')
 
-
-column_total = (DM_ones - DM_negative_ones) / 2
-# Perform operations on the image as needed
-
-# Convert the matrix Z to a numpy array
-Z = np.array(column_total)
-
-
-
-print('Finished')
-
-
+        normalized_pos=normalize_coordinates(ref_grid)
+        B,cart=get_Bmatrix(normalized_pos,6)
+        print('Finished B matrix')
+        Z_order=cart.nk
+        #Reference Coeffecients
+        z=np.zeros((Z_order,1))
+        #z[1]=10
+       #b_new=[]\C_new=[]
+        #Reference slope
+        S=np.dot(B,z)
+        iterations=100
+        #RMS=0
+        act=np.zeros(len(dm))
+        act[0]=1
+        dm.setActuators(act)
+        time.sleep(s_time)
+        one_frame = grabframes(5,2)
+        one_frame = one_frame[-1]
+        new_slopes=np.reshape(get_slopes(one_frame,ref_grid),(-1,1))
+        deltaS=S-new_slopes
+        square=0
+        for j in range(np.size(deltaS)):
+            square=square+deltaS[j]**2
+        RMS=np.sqrt(square)/(np.size(deltaS))
+        print(RMS)
+        
+        for i in range (iterations):
+            RMS_old=RMS
+            invC=np.linalg.pinv(C)
+            V=np.dot(invC,deltaS)
+            dm.setActuators(V)
+            #print(V)
+            time.sleep(s_time)
+            one_frame = grabframes(5,2)
+            one_frame = one_frame[-1]
+            new_slopes=np.reshape(get_slopes(one_frame,ref_grid),(-1,1))
+            deltaS=S-new_slopes
+            square=0
+            for j in range(np.size(deltaS)):
+                square=square+deltaS[j]**2
+            RMS=np.sqrt(square)/(np.size(deltaS))
+            print(RMS)
+            delta_RMS=RMS-RMS_old
+            delta_RMS=delta_RMS/RMS
+            
+#            if delta_RMS <0.05:
+#                print(i)
+#                break
+#            
+     
+     
 
 #num_actuators = len(dm)
 
@@ -257,6 +339,8 @@ print('Finished')
 #
 ## Convert the matrix Z to a numpy array
 #Z = np.array(Z)
+
+
 
 
 

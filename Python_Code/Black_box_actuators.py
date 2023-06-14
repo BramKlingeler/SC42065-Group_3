@@ -94,6 +94,7 @@ if __name__ == "__main__":
  
         while a == True:
             s_time = 0.1  # sleep time (small amount of time between steps)
+
             w_time = 0.1  # wait time around focus
             steps = 10
             # increase actuator voltage gradually, then reverse, hold at 0
@@ -109,10 +110,8 @@ if __name__ == "__main__":
                 act_amp = 0.8 / steps * current * (steps - i)
                 dm.setActuators(act_amp)
                 time.sleep(s_time)  # in seconds
-                print(act_amp[0])
+                #print(act_amp[0])
 
-            dm.setActuators(np.zeros(len(dm)))
-            time.sleep(w_time)
 
              #decrease actuator voltage gradually, then reverse, hold at 0
  #=============================================================================
@@ -127,7 +126,7 @@ if __name__ == "__main__":
                  dm.setActuators(act_amp)
                  time.sleep(s_time)  # in seconds
  #=============================================================================
-                 print(act_amp[0])
+                 #print(act_amp[0])
 
             dm.setActuators(np.zeros(len(dm)))
             time.sleep(w_time)
@@ -149,6 +148,7 @@ if __name__ == "__main__":
             plt.imshow(img[-1])
             plt.colorbar()
             
+
 #img = grabframes(1, 1)
 #cropped_img = img[0,320:960,256:768]
 #

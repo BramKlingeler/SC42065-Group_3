@@ -10,7 +10,6 @@ from dm.okotech.dm import OkoDM
 from camera.ueye_camera import uEyeCamera
 from pyueye import ueye
 
-from scipy.optimize import minimize 
 import numpy as np
 import matplotlib.pyplot as plt
 import time
@@ -68,23 +67,25 @@ if __name__ == "__main__":
             # Calculate the wavefront error as the root mean square of the gradients
             wavefront_error = np.sqrt(np.mean(gradient_x**2 + gradient_y**2))
 
-        return wavefront_error
+            return wavefront_error
 
-        def apply_deformable_mirror(image, voltages):
-            s_time = 0.01  # sleep time (small amount of time between steps)
-            w_time = 0.05  # wait time around focus
+        def apply_deformable_mirror(voltages):
+            s_time = 0.005  # sleep time (small amount of time between steps)
+            #w_time = 0.01  # wait time around focus
             steps = 10
-            prev_act_amp = 0
+            #prev_act_amp = 0
             # increase actuator voltage gradually, then reverse, hold at 0
             for i in range(steps):
-                current = np.ones(num_actuators)#np.zeros(num_actuators) for resetting the selected actuators
+                #current = np.ones(num_actuators)#np.zeros(num_actuators) for resetting the selected actuators
                 #current[j] = 1, only needed for seperate control
                 act_amp = 0.8 / steps * voltages * (steps + 1) #+ prev_act_amp / ((0.3*i)**3 + 1) #standard coeff
                 dm.setActuators(act_amp)
                 time.sleep(s_time)  # in seconds
+                
             
             img = grabframes(1, 1)
-            modified_image = img[0,320:960,256:768]
+            modified_image = img[0,384:640,480:800]#[0,256:768,320:960]
+            #time.sleep(w_time)
             
             for i in range(steps):
                 act_amp = 0.8 / steps * voltages * (steps - i)
@@ -94,7 +95,7 @@ if __name__ == "__main__":
             #prev_act_amp = act_amp
             #time.sleep(w_time)
             
-        return modified_image
+            return modified_image
 
         def random_walk_optimization(image, num_iterations, step_size):
             best_aberration = float('inf')
@@ -104,8 +105,8 @@ if __name__ == "__main__":
 
             for _ in range(num_iterations):
                 voltages = np.random.uniform(-step_size, step_size, size=num_actuators)
-                voltages[17] = 0
-                voltages[18] = 0
+                #voltages[17] = 0
+                #voltages[18] = 0
 
                 modified_image = apply_deformable_mirror(voltages)
 
@@ -118,18 +119,46 @@ if __name__ == "__main__":
             return best_image, best_aberration
 
         # Load the image
+        val_act = np.zeros(num_actuators)
+        val_act[0] = 0
+        val_act[1] = -0.5
+        val_act[2] = -0.5
+        val_act[3] = -0.5
+        val_act[4] = -0.5
+        val_act[5] = 1 
+        val_act[6] = -0.5
+        val_act[7] = -0.5 
+        val_act[8] = -0.5
+        val_act[9] = 1
+        val_act[10] =1
+        val_act[11] = 1
+        val_act[12] = -0.5
+        val_act[13] = -0.5
+        val_act[14] = -0.5
+        val_act[15] = 1
+        val_act[16] = 1
+        val_act[17] = 0
+        val_act[18] = 0
+        
+        dm.setActuators(val_act)
+        
+        
         img = grabframes(1, 1)
-        image = img[0,320:960,256:768]
+        image = img[0,384:640,480:800]
 
         # Set the parameters
-        num_iterations = 1000
-        step_size = 10
+        num_iterations = 250
+        step_size = 1
  
         dm.setActuators(act)  
 
         # Perform the random walk optimization
         optimized_image, best_aberration = random_walk_optimization(image, num_iterations, step_size)
 
+
+       # Display the optimized image and best aberration
+        cv2.imshow('Original', image)
+ 
         # Display the optimized image and best aberration
         cv2.imshow('Optimized Image', optimized_image)
         cv2.waitKey(0)
