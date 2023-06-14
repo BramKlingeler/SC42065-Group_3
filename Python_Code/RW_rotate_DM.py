@@ -101,7 +101,7 @@ if __name__ == "__main__":
         walk_iter = 100
         n = 1
         prev_act_amp = 0
-        iteration_progress = 1.2*10**5
+        iteration_progress = 2*10**5
         best_iteration = float('inf')
         
         
@@ -184,6 +184,10 @@ if __name__ == "__main__":
                 best_iteration = sum_img
                 voltage_best = voltage
                 iteration_progress = np.vstack((iteration_progress, best_iteration))
+                
+                if iteration_progress[1] < best_iteration:
+                    iteration_progress[1] = best_iteration
+                    
             
                 n = n+1
             
