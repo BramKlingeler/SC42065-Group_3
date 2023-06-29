@@ -17,12 +17,12 @@ import random
 SH_Sensor_Index = 2
 Camera_Index = 1
 
-act_initial=[-0.62627906, -0.57748853, -1.02261049, -0.27942378,  0.32247178,  1.19441498,
- -0.5018988,  -0.76241651,  0.1200851,  -0.53391441,  0.5560053,   1.21881588,
-  0.34127717, -0.24623419, 0.82221155, -0.28707566, -0.96491517,  0.16536202,
- -0.86804879]
-
-
+#act_initial=[-0.62627906, -0.57748853, -1.02261049, -0.27942378,  0.32247178,  1.19441498,
+# -0.5018988,  -0.76241651,  0.1200851,  -0.53391441,  0.5560053,   1.21881588,
+#  0.34127717, -0.24623419, 0.82221155, -0.28707566, -0.96491517,  0.16536202,
+# -0.86804879]
+act_initial= np.zeros([19])
+print(act_initial)
 def create_reference_fixed_grid(img):
     img_gray=img
     #find threshod
@@ -59,7 +59,8 @@ def get_slopes(image, reference_centers):
     # Draw grid around reference centers
     image_d=image
     #image=cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
-    grid_size = np.abs(reference_centers[1,0] - reference_centers[0,0])
+    #grid_size = np.abs(reference_centers[1,0] - reference_centers[0,0])
+    grid_size=58*0.9
     # Number of row and col of gird
     grid_rows = int((np.max(reference_centers[:, 1]) - np.min(reference_centers[:, 1])) / grid_size) + 1
     grid_cols = int((np.max(reference_centers[:, 0]) - np.min(reference_centers[:, 0])) / grid_size) + 1
@@ -172,6 +173,30 @@ def get_Bmatrix(points,Zorder):
             B[2*j,i]=(Phi[pixel_y,pixel_x+1]-Phi[pixel_y,pixel_x-1])/2
     return B,cart
 
+def rotate_image(image, angle):
+    rows, cols = image.shape[:2]
+    M = cv2.getRotationMatrix2D((cols / 2, rows / 2), angle, 1)
+    rotated_image = cv2.warpAffine(image, M, (cols, rows))
+    return rotated_image
+
+def translate_image(image, tx, ty):
+    rows, cols = image.shape[:2]
+    M = np.float32([[1, 0, tx], [0, 1, ty]])
+    translated_image = cv2.warpAffine(image, M, (cols, rows))
+    return translated_image
+
+def center_image(image):
+    image_center = np.shape(image)
+    #print(image_center)
+    cog_x = np.mean(np.where(image > 50)[1])
+    cog_y = np.mean(np.where(image > 50)[0])
+    translated_image = translate_image(image, image_center[1]/2-cog_x, image_center[0]/2-cog_y)
+    return translated_image
+
+def image_fix(image):
+    img_r = rotate_image(image, 4)
+    img_c = center_image(img_r)
+    return img_c
 
 if __name__ == "__main__":
     from dm.okotech.dm import OkoDM
@@ -183,18 +208,18 @@ if __name__ == "__main__":
         # set actuators to 0
         s_time = 0.01  # sleep time (small amount of time between steps)
         w_time = 0.1  # wait time around focus
-        act = np.zeros([len(dm)])
+        #act = np.zeros([len(dm)])
+        act=act_initial
         dm.setActuators(act)
         num_actuators = len(dm)
         time.sleep(w_time)
         img_original = grabframes(5,2)
-        img_original_2 = img_original[-1]
+        img_original_2 = image_fix(img_original[-1])
         #get reference point
         ref_points = create_reference_fixed_grid(img_original_2)
         #Some aberration need to be fixed
         S_fix=get_slopes(img_original_2, ref_points)
         #update reference points
-        ref_points=ref_points+S_fix
         normalized_pos=normalize_coordinates(ref_points)
         B,cart=get_Bmatrix(normalized_pos,6)
         print('Finished B matrix')
@@ -202,21 +227,20 @@ if __name__ == "__main__":
         DM_ones = np.zeros((np.size(ref_points),num_actuators))
         DM_negative_ones = np.zeros((np.size(ref_points),num_actuators))
         print(np.shape(ref_points))
-        for j in range(num_actuators):
+        for j in range(num_actuators-2):
             # increase actuator voltage gradually, then reverse, hold at 0
             current = np.zeros(num_actuators)
             current[j] = 0.5
-            act_amp = current
+            act_amp = current+act_initial
             dm.setActuators(act_amp)
             time.sleep(w_time)  # in seconds
             one_frame = grabframes(5,2)
-            one_frame = one_frame[-1]
-                    
+            one_frame = image_fix(one_frame[-1])
+            
             #plt.savefig('ref.jpg')
             #one_frame=cv2.imread('ref.jpg')
                     
-            slopes=np.reshape(get_slopes(one_frame,ref_points),(-1,1))
-
+            slopes=np.reshape(get_slopes(one_frame,ref_points)-S_fix,(-1,1))
             #print(np.shape(get_slopes(one_frame,ref_grid)))
             for k in range(np.size(ref_points)):
                 DM_ones[k,j] = slopes[k]
@@ -229,13 +253,13 @@ if __name__ == "__main__":
         for i in range(num_actuators):
             current = np.zeros(num_actuators)
             current[i] = -0.5
-            act_amp = current
+            act_amp = current+act_initial
             dm.setActuators(act_amp)
             time.sleep(w_time)  # in seconds
             one_frame = grabframes(5,2)
-            one_frame = one_frame[-1]
+            one_frame = image_fix(one_frame[-1])
                     
-            slopes=np.reshape(get_slopes(one_frame,ref_points),(-1,1))
+            slopes=np.reshape(get_slopes(one_frame,ref_points)-S_fix,(-1,1))
             for k in range(np.size(ref_points)):
                 DM_negative_ones[k,i] = slopes[k]
                 #DM_negative_ones[i] = get_slopes(one_frame,ref_grid)
@@ -254,19 +278,28 @@ if __name__ == "__main__":
         
 
 #%% Control test
+from matplotlib import pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D        
+
+
 if __name__ == "__main__":
     from dm.okotech.dm import OkoDM
 
     print("started")
-    with OkoDM(dmtype=1) as dm:  
+    with OkoDM(dmtype=1) as dm:
+        #For 3D image
+        xx = np.arange(2000)
+        yy = np.arange(2000)
+        X, Y = np.meshgrid(xx, yy)
+        
         Z_order=cart.nk
         #Reference Coeffecients
         z=np.zeros((Z_order,1))
-        z[3]=1000
+        z[1]=100
 
         #Zernike to slope, S is desired slope
         S=np.dot(B,z)
-        iterations=3
+
         #RMS=0
         #test C
         
@@ -274,10 +307,11 @@ if __name__ == "__main__":
 #        desired_V=np.dot(invC,S)
 #        act=desired_V
         
-        act=np.zeros(len(dm))
-        act[0]=-0.6
-        act[-2]=0.05
-        act[-1]=-0.13
+        #act=np.zeros(len(dm))
+        act=act_initial
+        act[0]=act[0]-0.6
+#        act[-2]=0.05
+#        act[-1]=-0.13
 
         dm.setActuators(act)
         
@@ -285,18 +319,29 @@ if __name__ == "__main__":
         
         time.sleep(s_time)
         one_frame = grabframes(5,2)
-        one_frame = one_frame[-1]
+        one_frame = image_fix(one_frame[-1])
         #new slope is observed
-        new_slopes=np.reshape(get_slopes(one_frame,ref_points),(-1,1))
+        
+        new_slopes=np.reshape(get_slopes(one_frame,ref_points)-S_fix,(-1,1))
         
         #test B matrix
         invB=np.linalg.pinv(B)
         test_cof=np.dot(invB,new_slopes)
         print(test_cof)
+        
         Phi=cart.eval_grid(test_cof, matrix=True)
-        plt.figure()
-        plt.imshow(Phi)
-        plt.plot(Phi[:,1000])
+#        plt.figure()
+#        plt.imshow(Phi)
+#        plt.plot(Phi[:,1000])
+#        plt.plot(Phi[1000,:])
+        # 3D pattern
+        fig = plt.figure()  #定义新的三维坐标轴
+        ax3 = plt.axes(projection='3d')
+
+        ax3.plot_surface(X,Y,Phi,cmap='rainbow')
+        plt.title('Aberration')
+        #ax3.contour(X,Y,Z, zdim='z',offset=-2，cmap='rainbow)   #等高线图，要设置offset，为Z的最小值
+        plt.show()
         
         
         
@@ -310,30 +355,26 @@ if __name__ == "__main__":
         invC=np.linalg.pinv(C)
 
         #control slope
+        iterations=5
         for i in range (iterations):
             #RMS_old=RMS
-            desired_V=np.dot(invC,S)
+#            desired_V=np.dot(invC,S)
+#            V_mean = np.mean(desired_V)
+
+            delta_V=np.dot(invC,deltaS)
+
+            V=V+delta_V
+            V_mean=np.zeros((19,1))
+            #V_mean[0:17]=np.mean(V[0:17])
+            dm.setActuators(V-V_mean)
             
-            desired_V=desired_V
-            desired_V[-1]=desired_V[-1]-0.13
-            desired_V[-2]=desired_V[-2]+0.05
-            V_mean = np.mean(desired_V)
-#            for i in range(np.size(desired_V)):
-#                if desired_V[i]>1:
-#                    desired_V[i]=1
-#                if desired_V[i]<--1:
-#                    desired_V[i]=-1
-#            delta_V=np.dot(invC,deltaS)
-#            #print(delta_V)
-#            V=V+delta_V
-#            dm.setActuators(V)
-            dm.setActuators(desired_V-V_mean)
+#            dm.setActuators(desired_V-V_mean)
             time.sleep(w_time)
             one_frame = grabframes(5,2)
-            one_frame = one_frame[-1]
+            one_frame = image_fix(one_frame[-1])
             
-            new_slopes=np.reshape(get_slopes(one_frame,ref_points),(-1,1))
-            #deltaS=S-new_slopes
+            new_slopes=np.reshape(get_slopes(one_frame,ref_points)-S_fix,(-1,1))
+            deltaS=S-new_slopes
             square=0
             for k in range(np.size(deltaS)):
                 square=square+deltaS[k]**2
@@ -350,12 +391,23 @@ if __name__ == "__main__":
         cof=np.dot(invB,new_slopes)
 #        print(test_cof)
         Phi1=cart.eval_grid(cof, matrix=True)
-        plt.figure()
-        plt.imshow(Phi1)     
-        plt.plot(Phi1[1000,:])
-        
-        act=np.zeros(len(dm))
+#        plt.figure()
+#        plt.imshow(Phi1)
+
+        act=act_initial
         dm.setActuators(act)
+        
+        
+        fig = plt.figure()  #定义新的三维坐标轴
+        ax3 = plt.axes(projection='3d')
+        plt.title('Result')
+
+        #定义三维数据
+
+        #作图
+        ax3.plot_surface(X,Y,Phi1,cmap='rainbow')
+        #ax3.contour(X,Y,Z, zdim='z',offset=-2，cmap='rainbow)   #等高线图，要设置offset，为Z的最小值
+        plt.show()
 
 #num_actuators = len(dm)
 
