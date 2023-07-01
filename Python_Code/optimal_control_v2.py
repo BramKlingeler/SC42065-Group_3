@@ -435,6 +435,9 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D        
 
 
+
+
+
 if __name__ == "__main__":
     from dm.okotech.dm import OkoDM
 
@@ -515,68 +518,67 @@ if __name__ == "__main__":
 
         print(RMS)
         invC=np.linalg.pinv(C)
+        n = np.shape(len(C))[0]
+        m = np.shape(len(C))[1]
+        Q = np.eye(n)
+        
+        A_k = np.vstack((np.hstack((Q,C)), np.zeros((n,m+n))))
+        B_k = np.vstack([-C, Q])
+        C_k = np.hstack([Q, np.zeros((n,m))])
+        # P= P(k|k-1)-- remember as an input for priori
 
-        #control slope
-        iterations=10
-        # Kalman filter parameters
-        dimension = len(new_slopes)
-        A = np.zeros((dimension,dimension)) # State transition matrix
-        B_K = C  # Control matrix (if applicable)
-        H = np.eye(dimension)  # Measurement matrix
-        Q = np.eye(dimension)  # Process noise covariance matrix
-        R = np.eye(dimension)  # Measurement noise covariance matrix
 
-        x = np.zeros((dimension, 1))  # Initial state estimate
-        P = np.eye(dimension)  # Initial state covariance
+        def Kalman_predict(x, u, P, A_k, B_k, C_k):
+            
+            y_p = C_k @ x
+
+            K=P@ np.transpose(C_k) @ np.inv(C_k @ P @ np.transpose(C_k))
+            L= np.eye(n+m)-K@C_k
+
+            #hat (x（k|k-1）)
+            x_hat_prev=x
+            #hat (x(k|k))
+            x_hat=K@y_p+L@x_hat_prev
+
+            #P (k|k)
+            P_kk=P-P@np.transpose(C_k)@np.inv(C_k@P@np.transpose(C_k))@C_k@P
+
+            # P(k+1|k)
+            P_p=A_k@P_kk@np.transpose(A_k)
+
+            #time update hat_x(k+1|k)
+            x_p=A_k@x_hat+B_k@u
+
+            return x_p,P_p
 
         
 
-
-
-
-
-
+        #control slope
+        iterations=20
         for i in range (iterations):
 
-            #RMS_old=RMS
-#            desired_V=np.dot(invC,S)
-#            V_mean = np.mean(desired_V)
-            
-            # Prediction step
-            x_predicted = np.dot(A, x)  # Predicted state estimate
-            P_predicted = np.dot(A, np.dot(P, A.T)) + Q  # Predicted state covariance
+            one_frame = grabframes(5,2)
+            one_frame = image_fix(one_frame[-1])
+            new_slopes=np.reshape(get_slopes(one_frame,ref_points)-S_fix,(-1,1))
+            deltaS=S-new_slopes
+            x=np.vstack(deltaS,V)
 
-            # Update step
-            z = new_slopes  # Measurement (current slopes observation)
-            innovation = z - np.dot(H, x_predicted)  # Innovation or measurement residual
-            S_k = np.dot(H, np.dot(P_predicted, H.T)) + R  # Innovation covariance
-            K = np.dot(P_predicted, np.dot(H.T, np.linalg.inv(S_k)))  # Kalman gain
-            x = x_predicted + np.dot(K, innovation)  # Updated state estimate
-            P = np.dot((np.eye(dimension) - np.dot(K, H)), P_predicted)  # Updated state covariance
+            x,P=Kalman_predict(x, u, P, A_k, B_k, C_k)
+            u = x[-19:]
 
-            # Update actuator values (input)
-            x_conv = np.dot(invC,x)
-            V = V + 0.2 * x_conv  # Adjust the input based on the estimated state
-
-            V_mean=np.mean(V)*np.ones((19,1))
+            V_mean=np.mean(u)*np.ones((19,1))
 #            print(np.shape(V))
             #V_mean[0:17]=np.mean(V[0:17])
-            V=V-V_mean
+            V=u-V_mean
             
             dm.setActuators(V)
             #print(V)
             
 #            dm.setActuators(desired_V-V_mean)
             time.sleep(w_time)
-            one_frame = grabframes(5,2)
-            one_frame = image_fix(one_frame[-1])
-            
-            new_slopes=np.reshape(get_slopes(one_frame,ref_points)-S_fix,(-1,1))
-            deltaS=S-new_slopes
-            
-            print(np.shape(deltaS))
+
             square=0
-            for k in range(np.shape(deltaS)[0]):
+            for k in range(np.size(deltaS)):
                 square=square+deltaS[k]**2
             RMS=np.sqrt(np.abs(square))/(np.size(deltaS))
             print(RMS)
@@ -609,28 +611,6 @@ if __name__ == "__main__":
         #ax3.contour(X,Y,Z, zdim='z',offset=-2，cmap='rainbow)   #等高线图，要设置offset，为Z的最小值
         plt.show()
 
-#num_actuators = len(dm)
-
-#for j in range(num_actuators):
-#    file_pattern_1 = 'Voltage_1_actuator_*.png'  # File pattern to match the filenames
-#    file_pattern_2 = 'Voltage_-1_actuator_*.png'
-#
-#    # Get a list of matching file paths
-#    file_paths_1 = glob.glob(file_pattern_1)
-#    file_paths_2 = glob.glob(file_pattern_2)
-#
-#    for file_path in file_paths:
-#        # Read the image using OpenCV
-#        image_1 = cv2.imread(file_path_1)
-#        image_2 = cv2.imread(file_path_2)
-#        column_slopes_1 = get_slopes(image_1,ref_grid)
-#        column_slopes_2 = get_slopes(image_2, ref_grid)
-#        column_total = (column_slopes_1 - column_slopes_2) / 2
-#        # Perform operations on the image as needed
-#       Z.append(column_total)
-#
-## Convert the matrix Z to a numpy array
-#Z = np.array(Z)
 
 
 
