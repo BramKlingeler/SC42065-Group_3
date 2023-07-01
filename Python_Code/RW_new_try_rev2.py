@@ -4,7 +4,7 @@ N = 10 #20 # number of iterations
 step = 0.5 # length of initial step
 epsilon = 0.001
 variables = 19 # number of variables
-iter_var_progress = 50 #first entry for the variance progression
+iter_var_progress = 5 #first entry for the variance progression
 #x = np.random.uniform(-1,1,(19,1))# initial position
 walk_num=1
 step=1
@@ -116,7 +116,7 @@ if __name__ == "__main__":
                     plt.figure()
                     u_op=u
                     print(max_variance(img_n))
-                    iter_var_progress = np.vstack((iter_var_progress, int(10/max_variance(img_n))))
+                    iter_var_progress = np.vstack((iter_var_progress, 1/max_variance(img_n)))
                     #print(u)
                 else:
                     k += 1
