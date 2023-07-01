@@ -482,7 +482,7 @@ if __name__ == "__main__":
         
         dm.setActuators(act)
         V=np.zeros((19,1))
-        V[0]=-0.6
+        V[0]=-0.8
         np.reshape(V, (19, 1))
         print(np.shape(V))
         time.sleep(s_time)
@@ -498,11 +498,7 @@ if __name__ == "__main__":
         print(np.shape(V))
         
         Phi=cart.eval_grid(test_cof, matrix=True)
-#        plt.figure()
-#        plt.imshow(Phi)
-#        plt.plot(Phi[:,1000])
-#        plt.plot(Phi[1000,:])
-        # 3D pattern
+
         fig = plt.figure()  #定义新的三维坐标轴
         ax3 = plt.axes(projection='3d')
 
@@ -518,54 +514,71 @@ if __name__ == "__main__":
 
         print(RMS)
         invC=np.linalg.pinv(C)
-        n = np.shape(len(C))[0]
-        m = np.shape(len(C))[1]
-        Q = np.eye(n)
-        
-        A_k = np.vstack((np.hstack((Q,C)), np.zeros((n,m+n))))
-        B_k = np.vstack([-C, Q])
-        C_k = np.hstack([Q, np.zeros((n,m))])
+        n = np.shape(C)[0] # 210
+        m = np.shape(C)[1]  # 19
+        Q = np.eye(n)  #210x210
+        Q_B=np.eye(m)  #19x19
+        A_k = np.vstack((np.hstack((Q,C)), np.zeros((m,n+m)))) # 229x229
+        B_k = np.vstack([-C, Q_B]) #229x19
+        C_k = np.hstack([Q, np.zeros((n,m))]) #210x229
         # P= P(k|k-1)-- remember as an input for priori
-
-
-        def Kalman_predict(x, u, P, A_k, B_k, C_k):
+        P=0.001*np.eye(n+m) #229x229
+        sigma=0.001
+        
+        noise_cov=np.zeros((n+m,n+m))
+        noise_cov[:n,:n]=0.001*np.eye(n)
+        x_hat_prev = np.vstack([deltaS,V])
+        def Kalman_predict(y, x_hat_prev, P, A_k, B_k, C_k):
             
-            y_p = C_k @ x
-
-            K=P@ np.transpose(C_k) @ np.inv(C_k @ P @ np.transpose(C_k))
-            L= np.eye(n+m)-K@C_k
-
+            
+            
+            
+            #y_p = C_k @ x
+            # P=P(k|k-1)
+            K= P @ np.transpose(C_k) @ np.linalg.inv(C_k @ P @ np.transpose(C_k)+sigma**2*np.eye(np.shape(C_k)[0]))
+            L= np.eye(n+m)-K @ C_k
+            
+            #x_hat= hat (x(k|k))
+            #x_hat_prev= hat (x(k|k-1))
+            x_hat=K @y+L@x_hat_prev
+            
             #hat (x（k|k-1）)
-            x_hat_prev=x
+            #x_hat_prev=x
             #hat (x(k|k))
-            x_hat=K@y_p+L@x_hat_prev
+            #x_hat=K@y_p+L@x_hat_prev
 
             #P (k|k)
-            P_kk=P-P@np.transpose(C_k)@np.inv(C_k@P@np.transpose(C_k))@C_k@P
-
-            # P(k+1|k)
-            P_p=A_k@P_kk@np.transpose(A_k)
-
+            P_kk=P-P@np.transpose(C_k)@np.linalg.inv(C_k@P@np.transpose(C_k)+sigma**2*np.eye(np.shape(C_k)[0]))@C_k@P
+            # u(k)
+            phi=A_k[:n,:]@x_hat
+            u=invC@phi
             #time update hat_x(k+1|k)
             x_p=A_k@x_hat+B_k@u
-
+            
+            # P(k+1|k)
+            P_p=A_k@P_kk@np.transpose(A_k)+noise_cov
+            #Update x and P
+            
             return x_p,P_p
 
         
 
         #control slope
-        iterations=20
+        iterations=10
+        
         for i in range (iterations):
 
             one_frame = grabframes(5,2)
             one_frame = image_fix(one_frame[-1])
             new_slopes=np.reshape(get_slopes(one_frame,ref_points)-S_fix,(-1,1))
             deltaS=S-new_slopes
-            x=np.vstack(deltaS,V)
-
-            x,P=Kalman_predict(x, u, P, A_k, B_k, C_k)
+            x=np.vstack([deltaS,V])
+            u=V
+            
+            x,P=Kalman_predict(deltaS, x_hat_prev, P, A_k, B_k, C_k)
             u = x[-19:]
-
+            x_hat_prev=x
+            P=P
             V_mean=np.mean(u)*np.ones((19,1))
 #            print(np.shape(V))
             #V_mean[0:17]=np.mean(V[0:17])
