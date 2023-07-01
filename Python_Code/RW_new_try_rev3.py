@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-N = 10 #20 # number of iterations
+N = 20 #20 # number of iterations
 step = 0.5 # length of initial step
 epsilon = 0.001
 variables = 19 # number of variables
@@ -86,9 +86,13 @@ if __name__ == "__main__":
         val_act[16] = 1
         val_act[17] = 0
         val_act[18] = 0
+        
+        # statically defining the starting position
+        #for f in range(len(dm)-2):
+        #    val_act[f] = val_act[f] + np.random.uniform(-0.5,0.5)
     
         
-        act=np.zeros([len(dm)])
+        act= val_act # np.zeros([len(dm)])
         dm.setActuators(act)
         time.sleep(0.05)
         while False:
@@ -103,7 +107,7 @@ if __name__ == "__main__":
             range_u=0.9
             u_0=act
             
-            while k<25: #50
+            while k<40: #50
                 img_o=img_n
                 u = u_0 + [np.random.uniform(-range_u,range_u) for i in range(variables)] # random vector
                 dm.setActuators(u)
@@ -125,12 +129,12 @@ if __name__ == "__main__":
                 else:
                     k += 1
                     img_n=img_o
-                    if k>15: #45
+                    if k>35: #45
                         range_u=0.5*range_u
                         u_0 = u_op
                         step=step+1
                         k=1
-                    if step>4: #8
+                    if step>8: #8
                         break
                 #print(" %d time of random walk" % walk_num)
                 walk_num += 1
@@ -139,7 +143,7 @@ if __name__ == "__main__":
             
             plt.figure()
             plt.plot(iter_var_progress)
-            plt.ylabel('image value')
+            plt.ylabel('minimum variance')
             plt.xlabel('improved iterations')
             plt.show()
 
