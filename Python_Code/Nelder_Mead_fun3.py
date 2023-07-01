@@ -48,12 +48,12 @@ class NelderMead:
                 image_sum = image_sum + cropped_img[k,h]
             
             
-        var_d =int(weighted_sum_var/image_sum)
+        var_d = (weighted_sum_var/image_sum)
          
     
         return var_d
 		
-	def nelder_mead (self, x0=np.zeros(19)):
+	def nelder_mead(self, x0=np.zeros(19)):
         history = []
         opts = {'maxiter': 5000, 'adaptive': True}
         def callback(x):
