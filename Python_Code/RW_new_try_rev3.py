@@ -5,7 +5,7 @@ N = 10 # number of iterations
 step = 0.5 # length of initial step
 epsilon = 0.001
 variables = 19 # number of variables
-iter_var_progress = 1/8.0 #first entry for the variance progression (1/2.0 for random)
+iter_var_progress = 1/2.0 #first entry for the variance progression (1/8.0 for transparent box)
 #x = np.random.uniform(-1,1,(19,1))# initial position
 walk_num=1
 step=1
@@ -94,9 +94,9 @@ if __name__ == "__main__":
         #    val_act[f] = val_act[f] + np.random.uniform(-0.5,0.5)
         
         # introduce tip or tilt via the special modes
-        val_act = np.zeros(num_actuators)
-        val_act[17] = 0.5
-        val_act[18] = 0
+        #val_act = np.zeros(num_actuators)
+        #val_act[17] = 0
+        #val_act[18] = 0.5
     
         
         act= val_act #np.zeros([len(dm)])
