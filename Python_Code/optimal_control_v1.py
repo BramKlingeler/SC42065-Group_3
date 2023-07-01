@@ -517,18 +517,21 @@ if __name__ == "__main__":
         invC=np.linalg.pinv(C)
 
         #control slope
-        iterations=50
+        iterations=10
         # Kalman filter parameters
-        dimension = np.len(new_slopes)
+        dimension = np.shape(new_slopes)[0]
         A = np.zeros((dimension,dimension)) # State transition matrix
         B_K = C  # Control matrix (if applicable)
         H = np.eye(dimension)  # Measurement matrix
-        Q = np.eye(dimension)  # Process noise covariance matrix
-        R = np.eye(dimension)  # Measurement noise covariance matrix
+        Q = 0.001*np.eye(dimension)  # Process noise covariance matrix
+        R = 0.001*np.eye(dimension)  # Measurement noise covariance matrix
 
         x = np.zeros((dimension, 1))  # Initial state estimate
         P = np.eye(dimension)  # Initial state covariance
-
+        
+        
+        x_predicted = np.dot(A, x)  # Predicted state estimate
+        P_predicted = np.dot(A, np.dot(P, A.T)) + Q  # Predicted state covariance
         
 
 
@@ -543,19 +546,23 @@ if __name__ == "__main__":
 #            V_mean = np.mean(desired_V)
             
                         # Prediction step
-            x_predicted = np.dot(A, x)  # Predicted state estimate
-            P_predicted = np.dot(A, np.dot(P, A.T)) + Q  # Predicted state covariance
+            
 
             # Update step
             z = new_slopes  # Measurement (current slopes observation)
             innovation = z - np.dot(H, x_predicted)  # Innovation or measurement residual
-            S = np.dot(H, np.dot(P_predicted, H.T)) + R  # Innovation covariance
-            K = np.dot(P_predicted, np.dot(H.T, np.linalg.inv(S)))  # Kalman gain
+            S_k = np.dot(H, np.dot(P_predicted, H.T)) + R  # Innovation covariance
+            K = np.dot(P_predicted, np.dot(H.T, np.linalg.inv(S_k)))  # Kalman gain
             x = x_predicted + np.dot(K, innovation)  # Updated state estimate
-            P = np.dot((np.eye(19) - np.dot(K, H)), P_predicted)  # Updated state covariance
-
+            P = np.dot((np.eye(dimension) - np.dot(K, H)), P_predicted)  # Updated state covariance
+            
+            x_predicted = x  
+            P_predicted = P  
+            
+            
+            x_V= np.dot(invC, x)
             # Update actuator values (input)
-            V = V + 0.2 * x  # Adjust the input based on the estimated state
+            V = V + 0.2 * x_V  # Adjust the input based on the estimated state
 
             V_mean=np.mean(V)*np.ones((19,1))
 #            print(np.shape(V))
