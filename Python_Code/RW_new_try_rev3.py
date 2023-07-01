@@ -1,10 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
-N = 20 #20 # number of iterations
+import time
+N = 10 # number of iterations
 step = 0.5 # length of initial step
 epsilon = 0.001
 variables = 19 # number of variables
-iter_var_progress = 5 #first entry for the variance progression
+iter_var_progress = 1/2.0 #first entry for the variance progression
 #x = np.random.uniform(-1,1,(19,1))# initial position
 walk_num=1
 step=1
@@ -46,11 +47,11 @@ def grabframes(nframes, cameraIndex=0):
     return imgs
 
 def max_intensity(img):
-    intensity=np.amax(img[-1])
+    intensity=np.amax(img)
     return intensity
 
 def max_variance(img):
-    img_cal=img[-1]
+    img_cal=img
     var=np.var(img_cal)
 #    mean=np.mean(img_cal)
 #    N=np.size(img_cal)
@@ -92,60 +93,58 @@ if __name__ == "__main__":
         #    val_act[f] = val_act[f] + np.random.uniform(-0.5,0.5)
     
         
-        act= val_act # np.zeros([len(dm)])
+        act= np.zeros([len(dm)]) #val_act 
         dm.setActuators(act)
         time.sleep(0.05)
-        while False:
-            act=np.zeros([len(dm)])
-            dm.setActuators(act)
-            time.sleep(0.1)
             
-        if True:
-            k=1
+        k=1
+        img=grabframes(5, Camera_Index)
+        #print(np.shape(img))
+        img_n = img[-1,384:640,480:800]
+        range_u=0.9
+        u_0=act
+        plt.imshow(img_n)
+        plt.colorbar(label='Intensity', orientation='vertical')
+        
+        while k<30:
+            img_o=img_n
+            u = u_0 + [np.random.uniform(-range_u,range_u) for i in range(variables)] # random vector
+            dm.setActuators(u)
+            time.sleep(0.1)
             img=grabframes(5, Camera_Index)
             img_n = img[-1,384:640,480:800]
-            range_u=0.9
-            u_0=act
-            
-            while k<40: #50
-                img_o=img_n
-                u = u_0 + [np.random.uniform(-range_u,range_u) for i in range(variables)] # random vector
-                dm.setActuators(u)
-                time.sleep(0.1)
-                img=grabframes(5, Camera_Index)
-                img_n = img[-1,384:640,480:800]
-                plt.imshow(img_n[-1])
-                plt.colorbar(cax=cax)
-                if(max_variance(img_n)>max_variance(img_o)): # if we find a better point
-                    k = 1
-                    img_n=img_n
-                    plt.imshow(img_n[-1])
-                    plt.colorbar(cax=cax)
-                    plt.figure()
-                    u_op=u
-                    print(max_variance(img_n))
-                    iter_var_progress = np.vstack((iter_var_progress, 1/max_variance(img_n)))
-                    #print(u)
-                else:
-                    k += 1
-                    img_n=img_o
-                    if k>35: #45
-                        range_u=0.5*range_u
-                        u_0 = u_op
-                        step=step+1
-                        k=1
-                    if step>8: #8
-                        break
-                #print(" %d time of random walk" % walk_num)
-                walk_num += 1
+            #plt.imshow(img_n)
+            #plt.colorbar(label='Intensity', orientation='vertical')
+            if(max_variance(img_n)>max_variance(img_o)): # if we find a better point
+                k = 1
+                img_n=img_n
+                plt.imshow(img_n)
+                plt.colorbar(label='Intensity', orientation='vertical')
+                plt.figure()
+                u_op=u
+                print(max_variance(img_n))
+                iter_var_progress = np.vstack((iter_var_progress, 1/max_variance(img_n)))
+                #print(u)
+            else:
+                k += 1
+                img_n=img_o
+                if k>25:
+                    range_u=0.5*range_u
+                    u_0 = u_op
+                    step=step+1
+                    k=1
+                if step>6:
+                    break
+            #print(" %d time of random walk" % walk_num)
+            walk_num += 1
                 
-            print(iter_var_progress)
-            
-            plt.figure()
-            plt.plot(iter_var_progress)
-            plt.ylabel('minimum variance')
-            plt.xlabel('improved iterations')
-            plt.show()
+        print(iter_var_progress)
+        
+        plt.figure()
+        plt.plot(iter_var_progress)
+        plt.ylabel('minimum variance')
+        plt.xlabel('improved iterations')
+        plt.show()
 
 #answer of intensity
 #[-0.78783364  0.46091063  0.60442698  0.81947666  0.34710144 -0.04037511
