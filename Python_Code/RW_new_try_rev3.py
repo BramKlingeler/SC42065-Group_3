@@ -5,7 +5,7 @@ N = 10 # number of iterations
 step = 0.5 # length of initial step
 epsilon = 0.001
 variables = 19 # number of variables
-iter_var_progress = 1/2.0 #first entry for the variance progression
+iter_var_progress = 1/8.0 #first entry for the variance progression (1/2.0 for random)
 #x = np.random.uniform(-1,1,(19,1))# initial position
 walk_num=1
 step=1
@@ -89,11 +89,17 @@ if __name__ == "__main__":
         val_act[18] = 0
         
         # statically defining the starting position
+        #val_act = np.zeros(num_actuators)
         #for f in range(len(dm)-2):
         #    val_act[f] = val_act[f] + np.random.uniform(-0.5,0.5)
+        
+        # introduce tip or tilt via the special modes
+        val_act = np.zeros(num_actuators)
+        val_act[17] = 0.5
+        val_act[18] = 0
     
         
-        act= np.zeros([len(dm)]) #val_act 
+        act= val_act #np.zeros([len(dm)])
         dm.setActuators(act)
         time.sleep(0.05)
             
@@ -101,10 +107,13 @@ if __name__ == "__main__":
         img=grabframes(5, Camera_Index)
         #print(np.shape(img))
         img_n = img[-1,384:640,480:800]
-        range_u=0.9
-        u_0=act
         plt.imshow(img_n)
         plt.colorbar(label='Intensity', orientation='vertical')
+        plt.figure()
+        
+        range_u=0.9
+        u_0=act
+        u_op=act
         
         while k<30:
             img_o=img_n
@@ -133,7 +142,7 @@ if __name__ == "__main__":
                     u_0 = u_op
                     step=step+1
                     k=1
-                if step>6:
+                if step>5:
                     break
             #print(" %d time of random walk" % walk_num)
             walk_num += 1
