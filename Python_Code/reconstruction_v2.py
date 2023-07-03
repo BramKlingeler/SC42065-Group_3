@@ -1,7 +1,8 @@
 """
-Classic_control
+Builds influence matrix
 """
 from dm.okotech.dm import OkoDM
+
 from camera.ueye_camera import uEyeCamera
 from pyueye import ueye
 import cv2
@@ -11,12 +12,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 import random
+from matplotlib import pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D        
+
 
 SH_Sensor_Index = 2
 Camera_Index = 1
 
+act_initial=[-0.62627906, -0.57748853, -1.02261049, -0.27942378,  0.32247178,  1.19441498,
+ -0.5018988,  -0.76241651,  0.1200851,  -0.53391441,  0.5560053,   1.21881588,
+  0.34127717, -0.24623419, 0.82221155, -0.28707566, -0.96491517,  0.16536202,
+ -0.86804879]
 
-act_initial= np.zeros([19])
 
 def create_reference_fixed_grid(img):
     img_gray=img
@@ -81,7 +88,8 @@ def get_slopes(image, reference_centers):
         draw_1=cv2.circle(draw_1, (int(abs_centriod[i,0]), int(abs_centriod[i,1])), 5, (255,255,255))
         draw_1=cv2.circle(draw_1, (center_x, center_y), 5, (0,255,255))
     new_draw = cv2.resize(draw_1, None, fx = 0.75, fy = 0.75)
-    # Calculate deviation from reference center
+    plt.figure()
+    plt.imshow(new_draw)
     deviations = abs_centriod-reference_centers 
     return deviations
 
@@ -91,8 +99,6 @@ def grabframes(nframes, cameraIndex=0):
         cam.set_colormode(ueye.IS_CM_MONO8)  # IS_CM_MONO8)
         w = 1280
         h = 1024
-        # cam.set_aoi(0,0, w, h)
-
         cam.alloc(buffer_count=10)
         cam.set_exposure(0.908)
         cam.capture_video(True)
@@ -106,9 +112,7 @@ def grabframes(nframes, cameraIndex=0):
             if frame is not None:
                 imgs[acquired] = frame
                 acquired += 1
-
         cam.stop_video()
-
     return imgs
 
 def normalize_coordinates(points):
@@ -118,7 +122,6 @@ def normalize_coordinates(points):
     max_distance = np.max(np.linalg.norm(points - center, axis=1))
     # Normalize the coordinates
     normalized_points = (points - center) / max_distance
-
     return normalized_points
 
 
@@ -137,7 +140,7 @@ def get_Bmatrix(points,Zorder):
     for k in range(cart.nk):
         prod = cart.radial(k, rho) * cart.angular(k, theta)
         #Code below can be comment
-        #prod[rho > 1.0] = 0
+#        prod[rho > 1.0] = 0
         cart.ZZ[:, k] = cart.vect(prod)
 
     B=np.zeros((2*points.shape[0],cart.nk))
@@ -156,16 +159,13 @@ def get_Bmatrix(points,Zorder):
             B[2*j,i]=(Phi[pixel_y,pixel_x+1]-Phi[pixel_y,pixel_x-1])/2
     return B,cart
 
-
 def rotate_image(image, angle):
     rows, cols = image.shape[:2]
     M = cv2.getRotationMatrix2D((cols / 2, rows / 2), angle, 1)
     rotated_image = cv2.warpAffine(image, M, (cols, rows))
     return rotated_image
 
-def image_fix(image):
-    img_r = rotate_image(image, 4)
-    return img_r
+
 
 if __name__ == "__main__":
     from dm.okotech.dm import OkoDM
@@ -176,176 +176,55 @@ if __name__ == "__main__":
         print(f"Deformable mirror with {len(dm)} actuators")
         # set actuators to 0
         s_time = 0.01  # sleep time (small amount of time between steps)
-        w_time = 0.1  # wait time around focus
-        #act = np.zeros([len(dm)])
-        act=act_initial
+        w_time = 0.5  # wait time around focus
+        act = np.zeros([len(dm)])
+        # get new image
         dm.setActuators(act)
         num_actuators = len(dm)
         time.sleep(w_time)
         img_original = grabframes(5,2)
-        img_original_2 = image_fix(img_original[-1])
-        #get reference point
+        img_original_2 = img_original[-1]
+        img_original_2 = rotate_image(img_original_2, 4)
+        
+        #get reference point 
+        plt.figure()
+        plt.imshow(img_original_2)
         ref_points = create_reference_fixed_grid(img_original_2)
+
         #Some aberration need to be fixed
         S_fix=get_slopes(img_original_2, ref_points)
-        #update reference points
+
         normalized_pos=normalize_coordinates(ref_points)
         B,cart=get_Bmatrix(normalized_pos,6)
-        print('Finished B matrix')
-        #Now find C matrix!
-        DM_ones = np.zeros((np.size(ref_points),num_actuators))
-        DM_negative_ones = np.zeros((np.size(ref_points),num_actuators))
-        # every iteration, we get information of one column of C matrix
-        for j in range(num_actuators):
-            current = np.zeros(num_actuators)
-            current[j] = 0.5
-            act_amp = current+act_initial
-            dm.setActuators(act_amp)
-            time.sleep(w_time)  # in seconds
-            one_frame = grabframes(5,2)
-            one_frame = image_fix(one_frame[-1])
-            slopes=np.reshape(get_slopes(one_frame,ref_points)-S_fix,(-1,1))
-            for k in range(np.size(ref_points)):
-                DM_ones[k,j] = slopes[k]
-  
-        dm.setActuators(np.zeros(len(dm)))
+        
+        act[0] = -0.8
+        dm.setActuators(act)
         time.sleep(w_time)
-        # inverse voltage then do it again!
-        for i in range(num_actuators):
-            current = np.zeros(num_actuators)
-            current[i] = -0.5
-            act_amp = current+act_initial
-            dm.setActuators(act_amp)
-            time.sleep(w_time)  # in seconds
-            one_frame = grabframes(5,2)
-            one_frame = image_fix(one_frame[-1])
-            slopes=np.reshape(get_slopes(one_frame,ref_points)-S_fix,(-1,1))
-            for k in range(np.size(ref_points)):
-                DM_negative_ones[k,i] = slopes[k]
-
-        dm.setActuators(np.zeros([len(dm)]))
-        time.sleep(w_time)
-
-        column_total = (DM_ones - DM_negative_ones) / 2
-
-        # We use +/-0.5V before, so it should time 2 now! 
-        C = np.array(2*column_total)
-        print('Finished C matrix')
-        
-
-#%% Control test
-from matplotlib import pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D        
-#voltage result from RW
-RW_V=[-0.62627906,-0.57748853,-1.02261049,-0.27942378,0.32247178,1.19441498,
- -0.5018988,-0.76241651,0.1200851,-0.53391441,0.5560053,1.21881588,
-  0.34127717,-0.24623419,0.82221155,-0.28707566,-0.96491517,0.16536202,
- -0.86804879]
-
-if __name__ == "__main__":
-    from dm.okotech.dm import OkoDM
-
-    print("started")
-    with OkoDM(dmtype=1) as dm:
-        #For 3D image
-        xx = np.arange(2000)
-        yy = np.arange(2000)
-        X, Y = np.meshgrid(xx, yy)
-        # Set desired coefficients to reach
-        Z_order=cart.nk
-        #Reference Coeffecients
-        z=np.zeros((Z_order,1))
-        z[1]=100
-        
-        Phi0=cart.eval_grid(z, matrix=True)
-        #plot target
-        fig = plt.figure()  
-        ax3 = plt.axes(projection='3d')
-        ax3.plot_surface(X,Y,Phi0,cmap='rainbow')
-        plt.title('Target') 
-        plt.show()
-        #Zernike to slope, S is desired slope
-        S=np.dot(B,z)
-        
-#        # RW walk check, can controller bring system to the result of RW?
-#        invB=np.linalg.pinv(B)
-#        dm.setActuators(RW_V)
-#        time.sleep(15)
-#        one_frame = grabframes(5,2)
-#        one_frame = image_fix(one_frame[-1])
-#        S=np.reshape(get_slopes(one_frame,ref_points)-S_fix,(-1,1))
-
-        # Set initial voltage as the static aberration
-        V=np.zeros((19,1))
-        V[0]=-0.8
-        dm.setActuators(V)
-        time.sleep(s_time)
-        one_frame = grabframes(5,2)
-        one_frame = image_fix(one_frame[-1])
-        #new slope is observed
-        new_slopes=np.reshape(get_slopes(one_frame,ref_points)-S_fix,(-1,1))
-        #plot target
+        imgs_new = grabframes(5,2)
+        img_new = imgs_new[-1]
+        img_new = rotate_image(img_new, 4)
+        plt.figure()
+        plt.imshow(img_new)
+       
+        D = np.reshape(get_slopes(img_new, ref_points)-S_fix,(-1,1))
         invB=np.linalg.pinv(B)
-        test_cof=np.dot(invB,new_slopes)
-        Phi=cart.eval_grid(test_cof, matrix=True)
-        # 3D pattern
-        fig = plt.figure()  
-        ax3 = plt.axes(projection='3d')
-        ax3.plot_surface(X,Y,Phi,cmap='rainbow')
-        plt.title('Aberration')
-        plt.show()
-        deltaS = S-new_slopes
-        #Calculate initial RMS
-        square=0
-        for j in range(np.size(deltaS)):
-            square=square+deltaS[j]**2
-        RMS=np.sqrt((square)/(np.size(deltaS)))
-        R_plot=[RMS]
-        print(RMS)
-        #invC=np.linalg.inv(C.T @ C) @ C.T
-        invC=np.linalg.pinv(C)
-        #control slope
-        iterations= 50
-        for i in range (iterations):
-            delta_V=np.dot(invC,deltaS)
-            # gain for integrator is 0.2
-            V=V+0.2*delta_V
-            #remove piston mode
-            V_mean=np.mean(V[:17])*np.ones((19,1))
-            V_mean[-1]=0
-            V_mean[-2]=0
-            V=V-V_mean
-            # 
-            dm.setActuators(V)
-            time.sleep(w_time)
-            #measure new slope
-            one_frame = grabframes(5,2)
-            one_frame = image_fix(one_frame[-1])
-            new_slopes=np.reshape(get_slopes(one_frame,ref_points)-S_fix,(-1,1))
-            deltaS=S-new_slopes
-            square=0
-            for k in range(np.size(deltaS)):
-                square=square+deltaS[k]**2
-            RMS=np.sqrt((np.abs(square))/(np.size(deltaS)))
-            print(RMS)
-            #RMS threshold can be set here
-            if RMS<0.2:
-                break
-            R_plot.append(RMS)
-            
-        cof=np.dot(invB,new_slopes)
-        Phi1=cart.eval_grid(cof, matrix=True)
-        #plot result
-        fig = plt.figure()  
-        ax3 = plt.axes(projection='3d')
-        plt.title('Result')
-        ax3.plot_surface(X,Y,Phi1,cmap='rainbow')
-        plt.show()
-        #plot RMS
-        fig = plt.figure()
-        plt.plot(R_plot)
-        plt.xlabel("Iteration times")
-        plt.ylabel("Root mean square")
+        cof=np.dot(invB,D)
+        Phi=cart.eval_grid(cof, matrix=True)        
         
+        #For 3D image
+        L=2000
+        xx = np.arange(L)
+        yy = np.arange(L)
+        X, Y = np.meshgrid(xx, yy)
+        fig = plt.figure()  
+        ax3 = plt.axes(projection='3d')
+        ax3.plot_surface(X,Y,Phi,cmap='rainbow')       
+        plt.show()
+
+
+
+
+
+
 
 

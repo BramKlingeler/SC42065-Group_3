@@ -1,9 +1,8 @@
-"""
-Classic_control
-"""
 from dm.okotech.dm import OkoDM
+
 from camera.ueye_camera import uEyeCamera
 from pyueye import ueye
+#import glob
 import cv2
 from zernike import RZern
 from scipy.ndimage.measurements import center_of_mass
@@ -15,8 +14,8 @@ import random
 SH_Sensor_Index = 2
 Camera_Index = 1
 
-
 act_initial= np.zeros([19])
+print(act_initial)
 
 def create_reference_fixed_grid(img):
     img_gray=img
@@ -25,6 +24,7 @@ def create_reference_fixed_grid(img):
     #find contour
     thresh = thresh.astype(np.uint8)
     _, contours, _ = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+    #draw contour
     points = np.zeros((len(contours),2))
     i=0
     for contour in contours:
@@ -136,8 +136,6 @@ def get_Bmatrix(points,Zorder):
     theta = np.arctan2(yv, xv)
     for k in range(cart.nk):
         prod = cart.radial(k, rho) * cart.angular(k, theta)
-        #Code below can be comment
-        #prod[rho > 1.0] = 0
         cart.ZZ[:, k] = cart.vect(prod)
 
     B=np.zeros((2*points.shape[0],cart.nk))
@@ -177,7 +175,6 @@ if __name__ == "__main__":
         # set actuators to 0
         s_time = 0.01  # sleep time (small amount of time between steps)
         w_time = 0.1  # wait time around focus
-        #act = np.zeros([len(dm)])
         act=act_initial
         dm.setActuators(act)
         num_actuators = len(dm)
@@ -192,10 +189,10 @@ if __name__ == "__main__":
         normalized_pos=normalize_coordinates(ref_points)
         B,cart=get_Bmatrix(normalized_pos,6)
         print('Finished B matrix')
-        #Now find C matrix!
+
         DM_ones = np.zeros((np.size(ref_points),num_actuators))
         DM_negative_ones = np.zeros((np.size(ref_points),num_actuators))
-        # every iteration, we get information of one column of C matrix
+        print(np.shape(ref_points))
         for j in range(num_actuators):
             current = np.zeros(num_actuators)
             current[j] = 0.5
@@ -203,14 +200,13 @@ if __name__ == "__main__":
             dm.setActuators(act_amp)
             time.sleep(w_time)  # in seconds
             one_frame = grabframes(5,2)
-            one_frame = image_fix(one_frame[-1])
+            one_frame = image_fix(one_frame[-2])
             slopes=np.reshape(get_slopes(one_frame,ref_points)-S_fix,(-1,1))
             for k in range(np.size(ref_points)):
-                DM_ones[k,j] = slopes[k]
-  
+                DM_ones[k,j] = slopes[k] 
         dm.setActuators(np.zeros(len(dm)))
         time.sleep(w_time)
-        # inverse voltage then do it again!
+
         for i in range(num_actuators):
             current = np.zeros(num_actuators)
             current[i] = -0.5
@@ -218,25 +214,22 @@ if __name__ == "__main__":
             dm.setActuators(act_amp)
             time.sleep(w_time)  # in seconds
             one_frame = grabframes(5,2)
-            one_frame = image_fix(one_frame[-1])
+            one_frame = image_fix(one_frame[-2])
+                    
             slopes=np.reshape(get_slopes(one_frame,ref_points)-S_fix,(-1,1))
             for k in range(np.size(ref_points)):
                 DM_negative_ones[k,i] = slopes[k]
-
         dm.setActuators(np.zeros([len(dm)]))
         time.sleep(w_time)
-
         column_total = (DM_ones - DM_negative_ones) / 2
-
-        # We use +/-0.5V before, so it should time 2 now! 
         C = np.array(2*column_total)
+
         print('Finished C matrix')
         
 
 #%% Control test
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D        
-#voltage result from RW
 RW_V=[-0.62627906,-0.57748853,-1.02261049,-0.27942378,0.32247178,1.19441498,
  -0.5018988,-0.76241651,0.1200851,-0.53391441,0.5560053,1.21881588,
   0.34127717,-0.24623419,0.82221155,-0.28707566,-0.96491517,0.16536202,
@@ -251,14 +244,13 @@ if __name__ == "__main__":
         xx = np.arange(2000)
         yy = np.arange(2000)
         X, Y = np.meshgrid(xx, yy)
-        # Set desired coefficients to reach
+        
         Z_order=cart.nk
         #Reference Coeffecients
         z=np.zeros((Z_order,1))
         z[1]=100
-        
-        Phi0=cart.eval_grid(z, matrix=True)
         #plot target
+        Phi0=cart.eval_grid(z, matrix=True)
         fig = plt.figure()  
         ax3 = plt.axes(projection='3d')
         ax3.plot_surface(X,Y,Phi0,cmap='rainbow')
@@ -273,69 +265,102 @@ if __name__ == "__main__":
 #        time.sleep(15)
 #        one_frame = grabframes(5,2)
 #        one_frame = image_fix(one_frame[-1])
+#
 #        S=np.reshape(get_slopes(one_frame,ref_points)-S_fix,(-1,1))
 
-        # Set initial voltage as the static aberration
         V=np.zeros((19,1))
         V[0]=-0.8
         dm.setActuators(V)
         time.sleep(s_time)
         one_frame = grabframes(5,2)
         one_frame = image_fix(one_frame[-1])
-        #new slope is observed
+        #new slope is observed        
         new_slopes=np.reshape(get_slopes(one_frame,ref_points)-S_fix,(-1,1))
-        #plot target
         invB=np.linalg.pinv(B)
-        test_cof=np.dot(invB,new_slopes)
+        test_cof=np.dot(invB,new_slopes)       
         Phi=cart.eval_grid(test_cof, matrix=True)
-        # 3D pattern
+        #plot aberration
         fig = plt.figure()  
         ax3 = plt.axes(projection='3d')
         ax3.plot_surface(X,Y,Phi,cmap='rainbow')
         plt.title('Aberration')
         plt.show()
         deltaS = S-new_slopes
-        #Calculate initial RMS
         square=0
         for j in range(np.size(deltaS)):
             square=square+deltaS[j]**2
         RMS=np.sqrt((square)/(np.size(deltaS)))
         R_plot=[RMS]
         print(RMS)
-        #invC=np.linalg.inv(C.T @ C) @ C.T
         invC=np.linalg.pinv(C)
+        #definition of state space
+        n = np.shape(C)[0] # 210
+        m = np.shape(C)[1]  # 19
+        Q = np.eye(n)  #210x210
+        Q_B=np.eye(m)  #19x19
+        A_k = np.vstack((np.hstack((Q,C)), np.zeros((m,n+m)))) # 229x229
+        B_k = np.vstack([-C, Q_B]) #229x19
+        C_k = np.hstack([Q, np.zeros((n,m))]) #210x229
+        # P= P(k|k-1)-- remember as an input for prior
+        P=0.001*np.eye(n+m) #229x229
+        sigma=0.001
+        R=sigma**2*np.eye(np.shape(C_k)[0])
+        noise_cov=np.zeros((n+m,n+m))
+        noise_cov[:n,:n]=0.01*np.eye(n)
+        x_hat_prev = np.vstack([deltaS,V])
+        
+        def Kalman_predict(y, x_hat_prev, P, A_k, B_k, C_k):
+
+            # P=P(k|k-1)
+            K= P @ np.transpose(C_k) @ np.linalg.inv(C_k @ P @ np.transpose(C_k)+R)
+            L= np.eye(n+m)-K @ C_k
+            #x_hat= hat (x(k|k))
+            #x_hat_prev= hat (x(k|k-1))
+            x_hat=K @y+L@x_hat_prev
+            #P (k|k)
+            P_kk=P-P@np.transpose(C_k)@np.linalg.inv(C_k@P@np.transpose(C_k)+R)@C_k@P
+            # u(k)
+            phi=A_k[:n,:]@x_hat
+            u=invC@phi
+            #time update hat_x(k+1|k)
+            x_p=A_k@x_hat+B_k@u
+            # P(k+1|k)
+            P_p=A_k@P_kk@np.transpose(A_k)+noise_cov
+            #Update x and P
+            return u,x_p,P_p
+
         #control slope
-        iterations= 50
+        iterations=50
         for i in range (iterations):
-            delta_V=np.dot(invC,deltaS)
-            # gain for integrator is 0.2
-            V=V+0.2*delta_V
-            #remove piston mode
-            V_mean=np.mean(V[:17])*np.ones((19,1))
-            V_mean[-1]=0
-            V_mean[-2]=0
-            V=V-V_mean
-            # 
-            dm.setActuators(V)
-            time.sleep(w_time)
-            #measure new slope
+
             one_frame = grabframes(5,2)
             one_frame = image_fix(one_frame[-1])
             new_slopes=np.reshape(get_slopes(one_frame,ref_points)-S_fix,(-1,1))
             deltaS=S-new_slopes
+            x=np.vstack([deltaS,V])
+            u,x,P=Kalman_predict(deltaS, x_hat_prev, P, A_k, B_k, C_k)
+            x_hat_prev=x
+            # cancel piston mode
+            V_mean=np.mean(u[:17])*np.ones((19,1))
+            V_mean[-1]=0
+            V_mean[-2]=0
+            V=u-V_mean
+            #
+            dm.setActuators(V)
+            time.sleep(w_time)
+            #
             square=0
             for k in range(np.size(deltaS)):
                 square=square+deltaS[k]**2
             RMS=np.sqrt((np.abs(square))/(np.size(deltaS)))
             print(RMS)
-            #RMS threshold can be set here
-            if RMS<0.2:
-                break
             R_plot.append(RMS)
-            
+            #set threshold here
+            if RMS <0.2:
+                break        
         cof=np.dot(invB,new_slopes)
-        Phi1=cart.eval_grid(cof, matrix=True)
         #plot result
+        Phi1=cart.eval_grid(cof, matrix=True)
         fig = plt.figure()  
         ax3 = plt.axes(projection='3d')
         plt.title('Result')
@@ -346,6 +371,8 @@ if __name__ == "__main__":
         plt.plot(R_plot)
         plt.xlabel("Iteration times")
         plt.ylabel("Root mean square")
-        
+
+
+
 
 
