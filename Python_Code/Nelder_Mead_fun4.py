@@ -103,8 +103,8 @@ def max_variance(act):
 	# Nelder-Mead Optimization	
 def nelder_mead(act): 
 #    history = []
-    opts = {'maxiter': 500, 'adaptive': True}
-    result = scipy.optimize.minimize(max_variance, act, method='Nelder-Mead', tol=1e-3, options = opts)
+    opts = {'maxiter': 100, 'adaptive': True}
+    result = scipy.optimize.minimize(max_variance, act, method='Nelder-Mead', tol=1e-2, options = opts)
     #print(result)
     print('Status: %s' %result['message'])
     print('Total Evaluations: %d' %result['nfev'])
@@ -158,7 +158,7 @@ if __name__ == "__main__":
         #val_act[18] = 0.5
     
         
-        act = np.zeros([len(dm)]) #val_act
+        act = val_act #np.zeros([len(dm)])
 
         sol, val = nelder_mead(act)
         
@@ -169,25 +169,3 @@ if __name__ == "__main__":
         plt.imshow(img_n)
         plt.colorbar(label='Intensity', orientation='vertical')
         plt.figure()
-        
-        #%% screenshoot
-if __name__ == "__main__":
-    from dm.okotech.dm import OkoDM
-    with OkoDM(dmtype=1) as dm:
-        V=np.zeros((19,1))
-        V[-3]= 0.00025
-        #V=[0, 0,0, 0, 0,0,0,0,0,0,0, 0, 0,0, 0, 0, 0.00025,0,0]
-        print(np.shape(V))
-        dm.setActuators(V)
-        img=grabframes(5, 1)
-        img_n = img[-1,384:640,480:800]
-
-        plt.imshow(img_n)
-        plt.colorbar(label='Intensity', orientation='vertical')
-        plt.figure()
-        
-#        while False:
-#            act=np.zeros([len(dm)])
-#            dm.setActuators(act)
-#            time.sleep(0.1)
-    
