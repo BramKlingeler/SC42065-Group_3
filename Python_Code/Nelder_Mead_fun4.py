@@ -101,11 +101,11 @@ def max_variance(act):
 #         return var_d
 
 	# Nelder-Mead Optimization	
-def nelder_mead (act): 
+def nelder_mead(act): 
 #    history = []
-    opts = {'maxiter': 10, 'adaptive': True}
-    result = scipy.optimize.minimize(max_variance, act, method='Nelder-Mead', tol=1, options = opts)
-    print(result)
+    opts = {'maxiter': 500, 'adaptive': True}
+    result = scipy.optimize.minimize(max_variance, act, method='Nelder-Mead', tol=1e-3, options = opts)
+    #print(result)
     print('Status: %s' %result['message'])
     print('Total Evaluations: %d' %result['nfev'])
 
@@ -115,15 +115,61 @@ def nelder_mead (act):
     #plot history
 #    plt.plot(solution,eva)
 #    plt.show()
+    return solution, evaluation
 
-# loop of random walk
+
 if __name__ == "__main__":
     from dm.okotech.dm import OkoDM
     with OkoDM(dmtype=1) as dm:
         #act=np.zeros([len(dm)])
-        act=np.zeros((19,1))
 
-        nelder_mead(act)   
+        num_actuators = len(dm)        
+        val_act = np.zeros(num_actuators)
+        val_act[0] = 0
+        val_act[1] = -0.5
+        val_act[2] = -0.5
+        val_act[3] = -0.5
+        val_act[4] = -0.5
+        val_act[5] = 1 
+        val_act[6] = -0.5
+        val_act[7] = -0.5 
+        val_act[8] = -0.5
+        val_act[9] = 1
+        val_act[10] =1
+        val_act[11] = 1
+        val_act[12] = -0.5
+        val_act[13] = -0.5
+        val_act[14] = -0.5
+        val_act[15] = 1
+        val_act[16] = 1
+        val_act[17] = 0
+        val_act[18] = 0
+        
+        
+        # statically defining the starting position
+        #val_act = np.zeros(num_actuators)
+        #for f in range(len(dm)-2):
+        #    val_act[f] = val_act[f] + np.random.uniform(-0.5,0.5)
+        
+        
+        # introduce tip or tilt via the special modes
+        #val_act = np.zeros(num_actuators)
+        #val_act[17] = 0
+        #val_act[18] = 0.5
+    
+        
+        act = np.zeros([len(dm)]) #val_act
+
+        sol, val = nelder_mead(act)
+        
+        dm.setActuators(sol)
+        img=grabframes(5, 1)
+        img_n = img[-1,384:640,480:800]
+
+        plt.imshow(img_n)
+        plt.colorbar(label='Intensity', orientation='vertical')
+        plt.figure()
+        
         #%% screenshoot
 if __name__ == "__main__":
     from dm.okotech.dm import OkoDM
